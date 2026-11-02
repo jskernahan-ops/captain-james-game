@@ -6,8 +6,15 @@ android {
         applicationId 'com.kernahan.noahbenny'
         minSdk 22          // Fire OS 5 (oldest Fire TV sticks) and up
         targetSdk 34
-        versionCode 24
-        versionName '0.9.12-finale'
+        versionCode 25
+        versionName '0.9.13-8bitdo'
     }
-    buildTypes { release { minifyEnabled false; signingConfig signingConfigs.debug } }
+    // One fixed signing key, so every new build installs over the old one and keeps the saved game
+    signingConfigs {
+        kernahan { storeFile file('kernahan.keystore'); storePassword 'kernahan'; keyAlias 'kernahan'; keyPassword 'kernahan' }
+    }
+    buildTypes {
+        debug { signingConfig signingConfigs.kernahan }
+        release { minifyEnabled false; signingConfig signingConfigs.kernahan }
+    }
 }
