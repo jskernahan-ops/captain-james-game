@@ -43,7 +43,8 @@ function pollInput(){
   const gps=(typeof navigator!=='undefined'&&navigator.getGamepads)?navigator.getGamepads():[];
   for(const g of gps){ if(!g)continue;
     const b=i=>g.buttons[i]&&g.buttons[i].pressed, ax=i=>g.axes[i]||0;
-    if(b(0))p.jump=1; if(b(1)||b(2)||b(6)||b(7))p.roll=1; if(b(3)||b(4)||b(5))p.swap=1; if(b(9)||b(8))p.pause=1;
+    // SNES / Donkey Kong Country layout: bottom (B) jump, left (Y) or top (X) roll, right (A) swap
+    if(b(0))p.jump=1; if(b(2)||b(3)||b(6)||b(7))p.roll=1; if(b(1)||b(4)||b(5))p.swap=1; if(b(9)||b(8))p.pause=1;
     if(b(12)||ax(1)<-0.5)p.up=1; if(b(13)||ax(1)>0.5)p.down=1; if(b(14)||ax(0)<-0.4)p.left=1; if(b(15)||ax(0)>0.4)p.right=1;
   }
   const n=SRC.nat; if(n.ax<-0.4)p.left=1; if(n.ax>0.4)p.right=1; if(n.ay<-0.5)p.up=1; if(n.ay>0.5)p.down=1;
@@ -647,21 +648,21 @@ function buildLevel1(){
     ['james','Terrible news, me hearties! Sneaky Captain Barnacle Bart and his Crabby Crew stole the Kernahan Family Treasure!'],
     ['james','They scattered the gold coins all over the islands. We have to get it back!'],
     ['james',"I'll sail the Irish Rover around the cove and meet ye at the far end of the beach."],
-    ['james','Press A to JUMP, X to ROLL, and Y to SWAP buddies. Now off ye go. Yo ho!']];
-  h.sign(10,'Jump on crabs, or press X to ROLL into them!');
+    ['james','Press B to JUMP, Y to ROLL, and A to SWAP buddies. Now off ye go. Yo ho!']];
+  h.sign(10,'Jump on crabs, or press Y to ROLL into them!');
   h.row(8,13,9);h.enemy('crab',16);h.enemy('crab',27);h.arc(19,23,8,1.5);
   h.arc(31,34,8,2);
   h.ground(34,90,2);
   h.plank(38,7,4);h.letter('A',39.5,5);h.C(38,6);h.C(41,6);
   h.row(43,46,9);h.enemy('parrot',47,7,80);
-  h.sign(50,'Press Y to SWAP between Noah and Benny!');
+  h.sign(50,'Press A to SWAP between Noah and Benny!');
   h.buddy(54);
   h.sign(58,'BONEHEAD! Only big Noah can bop him on the head!');
   h.row(60,62,9);h.enemy('bonehead',64);
   h.plank(67,7,4);h.letter('H',68.5,5);h.row(67,70,6);
   h.enemy('bonehead',74);h.cp(78);
   h.ground(80,90,2,4);h.row(81,84,9);h.enemy('crab',86);
-  h.sign(88,'Hop in the barrel, then press A to BLAST!');
+  h.sign(88,'Hop in the barrel, then press B to BLAST!');
   const b2=h.barrel(97,5,{auto:true,ang:0,range:360}),b1=h.barrel(90,8.9,{range:520});h.aim(b1,b2);
   for(let i=1;i<=4;i++){const k=i/5;L.coins.push({x:b1.x+(b2.x-b1.x)*k,y:b1.y+(b2.y-b1.y)*k,got:false});}
   for(let i=0;i<3;i++)L.coins.push({x:b2.x+70+i*45,y:b2.y,got:false});
@@ -687,9 +688,9 @@ function buildLevel2(){
   L.npcs.push({who:'granddad',x:7*T,face:-1});
   L.intro=[['granddad',"Well, shiver me whiskers! It's Noah and Benny! Yer old Granddad Grog-Beard here."],
     ['granddad',"I keep the lighthouse at Parrot Palm Jungle. Barnacle Bart's crew stomped right through here!"],
-    ['granddad','Swing on the ROPES to cross the big holes. Jump to grab on, then press A to let go!'],
+    ['granddad','Swing on the ROPES to cross the big holes. Jump to grab on, then press B to let go!'],
     ['granddad',"And if ye spot a RAINBOW barrel... hoo-hoo! Ye'll see! Off ye go, the Captain's waitin'!"]];
-  h.sign(11,'Jump onto a ROPE to grab it. Press A to let go!');
+  h.sign(11,'Jump onto a ROPE to grab it. Press B to let go!');
   h.row(9,13,9);h.enemy('frog',17);
   h.rope(23.5,262,0);
   h.ground(25,44,2);
@@ -708,7 +709,7 @@ function buildLevel2(){
   h.arc(104,108,8,1.5);h.arc(112,116,8,1.5);h.letter('O',114,6.3);
   h.enemy('parrot',110,7,50);h.enemy('crab',119);h.enemy('frog',123);
   h.cp(126);
-  h.sign(127,'Hop in the barrel, then press A to BLAST!');
+  h.sign(127,'Hop in the barrel, then press B to BLAST!');
   const b2=h.barrel(138,5.5,{auto:true,ang:0,range:380}),b1=h.barrel(129,8.9,{range:520});h.aim(b1,b2);
   for(let i=1;i<=4;i++){const k=i/5;L.coins.push({x:b1.x+(b2.x-b1.x)*k,y:b1.y+(b2.y-b1.y)*k,got:false});}
   h.ground(143,170,2);
@@ -1091,8 +1092,8 @@ function buildLevel3(){
   L.npcs.push({who:'tim',x:2*T,face:1});
   L.intro=[['tim','Ahoy there, Noah and Benny! Tiger Tim at yer service, the best ship taxi on the seven seas!'],
     ["tim","I fixed up the Irish Rover's dinghy, Rover Jr. She's fast as a tiger! Grrr!"],
-    ['tim','The water slides run all the way down to the sea, where the Captain is waiting. Rover Jr drives herself. Press A to JUMP over rocks and gaps!'],
-    ['tim',"Up the big ramps ye'll fly! Bounce on the crabs' barrels, and hold A to bounce extra high. And hold on tight for the giant LOOP-DE-LOOP at the end! Ready? Let's go!"]];
+    ['tim','The water slides run all the way down to the sea, where the Captain is waiting. Rover Jr drives herself. Press B to JUMP over rocks and gaps!'],
+    ['tim',"Up the big ramps ye'll fly! Bounce on the crabs' barrels, and hold B to bounce extra high. And hold on tight for the giant LOOP-DE-LOOP at the end! Ready? Let's go!"]];
   for(const o of objs){const y=surfY(L,o.x);
     if(o.type==='rock'||o.type==='log')L.obs.push({type:o.type,x:o.x,y,broken:false});
     else if(o.type==='cbarrel')L.spawns.push({type:'cbarrel',x:o.x,y});
@@ -1347,10 +1348,10 @@ function buildLevel4(){
   L.npcs.push({who:'nene',x:8.6*T,face:-1});
   L.intro=[['nene','Oh, my darling boys! Welcome to me Seashell Cottage on Coral Lagoon!'],
     ['nene',"Barnacle Bart's crew dropped a whole chest of gold coins into the lagoon. Can ye fetch them for the Captain?"],
-    ['nene','Press A to SWIM, and steer with ◀ ▶ ▲ ▼. Jellyfish, puffer fish and spiky urchins sting, so swim around them!'],
+    ['nene','Press B to SWIM, and steer with ◀ ▶ ▲ ▼. Jellyfish, puffer fish and spiky urchins sting, so swim around them!'],
     ['nene',"Here's a big hug and an EXTRA LIFE for good luck! The Captain has anchored the Irish Rover on the far side. Off ye swim!"]];
   L.introDone=()=>{lives++;SFX.life();POP={text:'+1 LIFE!',t:0};};
-  h.sign(10.5,'Press A to SWIM! Steer with ◀ ▶ ▲ ▼.');
+  h.sign(10.5,'Press B to SWIM! Steer with ◀ ▶ ▲ ▼.');
   // sea floor
   h.ground(12,189,1);
   for(let i=0;i<6;i++)C(13+i,4+i);
@@ -1388,7 +1389,7 @@ function buildLevel4(){
   L.ship={x:181*T};L.shipY=108;L.shipScale=0.6;L.dialogLow=true;L.noCayla=true;L.noPlank=true;
   row(178,188,8);for(let i=0;i<4;i++)C(186+i,6-i);
   h.ground(190,199,9);
-  h.sign(188,'Swim to the top and press A to LEAP onto the beach!');
+  h.sign(188,'Swim to the top and press B to LEAP onto the beach!');
   L.goal={x:191.5*T,chestX:193*T,capX:195*T};
   return L;
 }
@@ -1513,7 +1514,7 @@ function buildLevel5(){
   L.intro=[['mom','Ahoy, my brave boys! Welcome to Pirate Port!'],
     ['mom','Papa Bosun came down to the docks to help ye, but he fell asleep in a crate! Silly Papa.'],
     ['mom',"Find the crate with his whistle on it and he'll carry ye on his shoulders. He can stomp ANY baddie!"],
-    ['mom','Press X and Papa will CHARGE! He can even smash cracked walls. Watch out for rolling barrels. Now go get them!']];
+    ['mom','Press Y and Papa will CHARGE! He can even smash cracked walls. Watch out for rolling barrels. Now go get them!']];
   h.sign(10,"Find Papa Bosun's crate and ride on his shoulders!");
   h.row(8,12,9);h.enemy('crab',15);h.enemy('crab',19);
   // first piers
@@ -1523,7 +1524,7 @@ function buildLevel5(){
   papa(47);h.sign(45,'Break open the crate to wake up Papa Bosun!');
   h.enemy('bonehead',52);h.enemy('crab',55);h.enemy('bonehead',57);h.letter('A',54,6);
   // secret room behind a cracked wall
-  h.sign(57,"Cracked wall? Papa's CHARGE (X) can smash it!");
+  h.sign(57,"Cracked wall? Papa's CHARGE (Y) can smash it!");
   crate(59,9,9);crate(60,8,9);crate(61,8,9);
   for(let x=63;x<=68;x++)g[6][x]=1;for(let r=6;r<=9;r++)g[r][62]=5;for(let r=7;r<=9;r++)g[r][68]=1;
   L.kcoin={x:65.5*T,y:8.3*T,got:false};h.row(63,67,9);h.row(62,68,5);
@@ -1675,13 +1676,13 @@ function buildLevel6(){
   // rocky shore with Granddad
   h.ground(0,14,2);L.start={x:3*T,y:10*T};L.npcs.push({who:'granddad',x:7*T,face:-1});
   L.intro=[['granddad','Ahoy again, boys! Welcome to the Moonlight Shipwrecks. Spooky, eh? Hoo-hoo!'],
-    ['granddad','Bounce on the old SAILS to fly up high. Hold A for an extra big bounce!'],
+    ['granddad','Bounce on the old SAILS to fly up high. Hold B for an extra big bounce!'],
     ["granddad","Those floating barrels sink when ye stand on them, so hop along quickly!"],
     ["granddad","The ghosts are just silly old pirates, so give 'em a bop!"],
     ["granddad","Here, take me lantern. It's dark as a cave inside the big wreck!"]];
   // Granddad hands his lantern to the boys when he finishes talking
   L.introDone=()=>{L.handoff={start:L.t};SFX.swish&&SFX.swish();};
-  h.sign(11,'Jump on the SAIL to bounce! Hold A to bounce higher.');
+  h.sign(11,'Jump on the SAIL to bounce! Hold B to bounce higher.');
   h.row(8,12,9);
   sail(16.6,420,true);h.arc(15,20,6,2);
   // wreck A
@@ -1917,11 +1918,11 @@ function buildLevel7(){
   L.intro=[['tim',"Grrr-eetings, lads! Tiger Tim's ship taxi has dropped ye at Mount Kaboom!"],
     ['tim','Mind the hot lava and the leaping fireballs. Wait for a fireball to drop back down, then jump!'],
     ['tim','Mama Pearl came ahead with her trusty umbrella. Find her crate and ride along with her!'],
-    ['tim',"Hold A in the air and she'll float with her umbrella. The steam vents will carry ye up high! Off ye go!"]];
+    ['tim',"Hold B in the air and she'll float with her umbrella. The steam vents will carry ye up high! Off ye go!"]];
   h.sign(11,'Fireballs jump out of the lava. Wait, then jump!');h.row(8,12,9);
   fire(16,0);h.arc(14,18,8,2);
   h.ground(18,34,2);h.enemy('crab',22);bat(27,6,70);h.row(19,26,9);
-  h.sign(29,"Break Mama Pearl's crate! Hold A in the air to float!");mama(31);
+  h.sign(29,"Break Mama Pearl's crate! Hold B in the air to float!");mama(31);
   // first lava lake: stepping stones, or float on the steam vents
   stone(37,2,9);stone(41,2,9);fire(39.5,40);vent(35.5,200);vent(43.5,200);
   h.letter('A',39.5,4);h.arc(35,44,6,2.5);
@@ -2472,7 +2473,7 @@ function buildLevel9(){
   h.ground(0,17,2,4);L.start={x:3*T,y:10*T};L.npcs.push({who:'james',x:6.5*T,face:-1});
   L.intro=[['james',"There it is, lads... Barnacle Bart's Fort! The rest of our treasure is locked inside!"],
     ['james',"Bart's crew will fire cannonballs at ye. Jump over them, or bop them on the head!"],
-    ['james',"When ye find Bart himself, press X to ROLL right into his big belly! Or wait 'til he sits down tired and jump on his head!"],
+    ['james',"When ye find Bart himself, press Y to ROLL right into his big belly! Or wait 'til he sits down tired and jump on his head!"],
     ['james',"The whole family is cheering for ye. Go get 'em, me hearties!"]];
   h.row(9,15,9);
   // moat 18-20
@@ -2980,7 +2981,7 @@ function render(){
   drawWater();
   for(const p of parts){ctx.fillStyle=p.col;ctx.globalAlpha=Math.min(1,p.life/15);ctx.fillRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size);}ctx.globalAlpha=1;
   ctx.restore();drawDarkness();ctx.save();ctx.translate(-Math.round(cam.x),0);
-  if(P.state==='barrel'&&!P.barrel.auto&&(frame>>4)%2)txt('Press A!',P.barrel.x,P.barrel.y-44,22,'#ffd23f','center');
+  if(P.state==='barrel'&&!P.barrel.auto&&(frame>>4)%2)txt('Press B!',P.barrel.x,P.barrel.y-44,22,'#ffd23f','center');
   if(!DLG)for(const s of L.signs)if(Math.abs(s.x-(P.x+P.w/2))<90)drawBubble(s.x,groundTop(Math.floor(s.x/T))-76,s.text);
   ctx.restore();
   drawHUD();
@@ -3012,7 +3013,7 @@ function drawDialog(){
   drawPortrait(who,x+14,y+14,108,DLG.ch<line.length);
   txt(ADULT[who]?ADULT[who].name:who==='bart'?BART_NAME:who==='skye'?'Skye':CH[who].name,x+140,y+26,18,'#ffd23f');
   wrap(shown,w-170,22).forEach((l,i)=>txt(l,x+140,y+58+i*28,22,'#fff',undefined,false));
-  if(DLG.ch>=line.length&&(frame>>4)%2)txt('A ▶',x+w-46,y+h-22,18,'#ffd23f','center');
+  if(DLG.ch>=line.length&&(frame>>4)%2)txt('B ▶',x+w-46,y+h-22,18,'#ffd23f','center');
 }
 
 /* ================= SCREENS ================= */
@@ -3026,8 +3027,8 @@ function drawTitle(){
   ctx.save();ctx.translate(330,452);ctx.scale(1.5,1.5);drawKid('noah',0,0,1,'run',frame,1,{});drawKid('benny',-40,0,1,'run',frame+10,1,{});ctx.restore();
   ctx.save();ctx.translate(W/2,92+Math.sin(frame*0.04)*4);
   txt('Adventures of',0,-34,30,'#fff','center','#2a1406');txt('CAPTAIN JAMES SEAN KERNAHAN',0,8,50,'#ffd23f','center','#5a1a10');txt('Noah and Benny Save Kernahan Cove',0,56,32,'#fff','center','#2a1406');ctx.restore();
-  if((frame>>5)%2)txt('Press A to Start',W/2,222,30,'#fff','center');
-  txt('Y: Meet the Crew',W/2,262,20,'#ffd23f','center');
+  if((frame>>5)%2)txt('Press B to Start',W/2,222,30,'#fff','center');
+  txt('A: Meet the Crew',W/2,262,20,'#ffd23f','center');
 }
 const CAST=[['noah','Noah','Big brother hero'],['benny','Benny','Little brother hero'],['james','Captain James','Your guide'],['cayla','Captain Cayla','Treasure Map Room'],['tim','Tiger Tim','Ship Taxi'],
   ['granddad','Granddad Grog-Beard','Lighthouse keeper'],['nene','Nene Nightingale','Seashell Cottage'],['mom','Mama Pearl','Ride-along helper'],['dad','Papa Bosun','Ride-along helper']];
@@ -3039,11 +3040,11 @@ function drawCast(){
     if(id==='noah'||id==='benny'){ctx.save();ctx.translate(x,y);ctx.scale(1.7,1.7);drawKid(id,0,0,1,'idle',frame,1,{});ctx.restore();}
     else drawAdult(id,x,y,1,frame,false,1.15);
     txt(nm,x,y+20,17,'#fff','center');txt(role,x,y+40,14,'#9fd0ff','center',false);});
-  txt('A: back',W-70,H-20,16,'#ffd23f','center');
+  txt('B: back',W-70,H-20,16,'#ffd23f','center');
 }
 const PAUSE={sel:0};
 function drawPause(){const p=drawPanel(560,380);txt('PAUSED',W/2,p.y+46,40,'#ffd23f','center');
-  ['◀ ▶  Walk','A  Jump (hold for higher!)','X  Roll attack','Y  Swap Noah / Benny'].forEach((s,i)=>txt(s,p.x+90,p.y+96+i*30,20,'#fff'));
+  ['◀ ▶  Walk','B  Jump (hold for higher!)','Y  Roll attack','A  Swap Noah / Benny'].forEach((s,i)=>txt(s,p.x+90,p.y+96+i*30,20,'#fff'));
   ['Keep Playing','Exit to Treasure Map'].forEach((s,i)=>{const y=p.y+250+i*56,on=PAUSE.sel===i;
     ctx.fillStyle=on?'#e8b830':'rgba(255,255,255,.12)';rr(W/2-170,y-22,340,44,14);ctx.fill();
     txt(s,W/2,y,22,on?'#2a1406':'#fff','center',on?false:undefined);if(on)txt('▶',W/2-145,y,20,'#2a1406','center',false);});}
@@ -3052,10 +3053,10 @@ function drawClear(){
   const got=L.letters.filter(l=>l.got).length;
   const rows=[['Gold coins',G.coins+' / '+G.total],['A-H-O-Y letters',got+' / 4'],['Secret Kernahan Coin',G.kcoin?'FOUND!':'not yet...'],['Time',Math.floor(G.time/3600)+':'+String(Math.floor(G.time/60)%60).padStart(2,'0')]];
   rows.forEach((r,i)=>{txt(r[0],p.x+70,p.y+150+i*40,24,'#fff');txt(r[1],p.x+530,p.y+150+i*40,24,'#ffd23f','right');});
-  if(clearT>60&&(frame>>5)%2)txt('Press A to sail on',W/2,p.y+340,22,'#fff','center');
+  if(clearT>60&&(frame>>5)%2)txt('Press B to sail on',W/2,p.y+340,22,'#fff','center');
 }
 function drawGameOver(){const p=drawPanel(520,220);txt("Don't give up, mateys!",W/2,p.y+60,32,'#ffd23f','center');
-  txt('The Captain gives ye 5 more tries.',W/2,p.y+110,22,'#fff','center');if((frame>>5)%2)txt('Press A to keep going',W/2,p.y+165,22,'#fff','center');}
+  txt('The Captain gives ye 5 more tries.',W/2,p.y+110,22,'#fff','center');if((frame>>5)%2)txt('Press B to keep going',W/2,p.y+165,22,'#fff','center');}
 
 /* ---------- Treasure map ---------- */
 // islands zig-zag left to right; the map scrolls sideways to follow the Irish Rover
@@ -3067,7 +3068,7 @@ function openMap(fromClear){
   STATE='map';MAP.sel=Math.min(SAVE.unlocked,LEVELS.length-1);if(fromClear&&L)MAP.sel=L.num;
   MAP.rx=MAPN[MAP.sel].x;MAP.ry=MAPN[MAP.sel].y;MAP.cx=clamp(MAP.rx-W/2,0,Math.max(0,MAP_W-W));
   if(fromClear){MAP.sel=L.num;
-    startDialog([['cayla',"Ahoy, lads! I'm Captain Cayla, keeper of the treasure map."],['cayla',"I've marked yer progress on me map. Yer game is saved!"],['cayla','Pick an island with ◀ ▶ and press A to sail there.']],null);
+    startDialog([['cayla',"Ahoy, lads! I'm Captain Cayla, keeper of the treasure map."],['cayla',"I've marked yer progress on me map. Yer game is saved!"],['cayla','Pick an island with ◀ ▶ and press B to sail there.']],null);
     if(SAVE.seenCayla)DLG.lines=[['cayla',"Well done, me hearties! I've marked it on the map. Game saved!"]];SAVE.seenCayla=true;saveGame();}
   MUS.tr=0;MUS.step=0.19;musicStart();
 }
@@ -3127,7 +3128,7 @@ function drawMap(){
   if(MAP.cx>4)txt('◀',22,230,30,'#fff','center');if(MAP.cx<MAP_W-W-4)txt('▶',W-22,230,30,'#fff','center');
   ctx.fillStyle='rgba(24,16,8,.75)';rr(W/2-200,10,400,46,14);ctx.fill();txt('Treasure Map',W/2,34,30,'#ffd23f','center');
   if(!DLG){drawAdult('cayla',70,H-18,1,frame,false,1.05);txt("Captain Cayla's Map Room",130,H-90,16,'#fff');
-    txt('◀ ▶ choose    A sail!    Y crew',130,H-62,18,'#ffd23f');}
+    txt('◀ ▶ choose    B sail!    A crew',130,H-62,18,'#ffd23f');}
   if(POP)txt(POP.text,W/2,120,40,'#fff','center');
 }
 
