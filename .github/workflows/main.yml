@@ -1,0 +1,32 @@
+# Builds the game into CaptainJames.apk on GitHub's free build servers,
+# then attaches it to a Release so the Fire TV "Downloader" app can fetch it by URL.
+name: Build APK
+on:
+  push:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build the APK
+        run: gradle assembleDebug --no-daemon
+      - name: Name it
+        run: cp app/build/outputs/apk/debug/app-debug.apk CaptainJames.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CaptainJames-apk
+          path: CaptainJames.apk
+      - name: Publish as the latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "build-${{ github.run_number }}" CaptainJames.apk --title "Build ${{ github.run_number }}" --notes "Captain James game build" --latest
