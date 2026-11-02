@@ -44,11 +44,13 @@ public class MainActivity extends Activity {
             case KeyEvent.KEYCODE_DPAD_RIGHT: return "right";
             case KeyEvent.KEYCODE_DPAD_UP: return "up";
             case KeyEvent.KEYCODE_DPAD_DOWN: return "down";
+            // SNES / Donkey Kong Country layout for the 8BitDo SN30 Pro (Android mode reports buttons by position):
+            // bottom button (labelled B) = jump, left (Y) or top (X) = roll, right (A) = swap
             case KeyEvent.KEYCODE_BUTTON_A: case KeyEvent.KEYCODE_DPAD_CENTER:
             case KeyEvent.KEYCODE_ENTER: return "jump";
-            case KeyEvent.KEYCODE_BUTTON_X: case KeyEvent.KEYCODE_BUTTON_B:
+            case KeyEvent.KEYCODE_BUTTON_X: case KeyEvent.KEYCODE_BUTTON_Y:
             case KeyEvent.KEYCODE_BUTTON_R1: case KeyEvent.KEYCODE_BUTTON_R2: return "roll";
-            case KeyEvent.KEYCODE_BUTTON_Y: case KeyEvent.KEYCODE_BUTTON_L1:
+            case KeyEvent.KEYCODE_BUTTON_B: case KeyEvent.KEYCODE_BUTTON_L1:
             case KeyEvent.KEYCODE_BUTTON_L2: case KeyEvent.KEYCODE_MENU: return "swap";
             case KeyEvent.KEYCODE_BUTTON_START: case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
             case KeyEvent.KEYCODE_BUTTON_SELECT: case KeyEvent.KEYCODE_BACK: return "pause";
