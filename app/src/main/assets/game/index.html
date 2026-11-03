@@ -98,6 +98,9 @@ const SFX={
   rope:()=>tone(380,0.09,'triangle',0.12,180),
   hop:()=>tone(200,0.12,'sine',0.1,260),
   swim:()=>{tone(420,0.14,'sine',0.07,260);noise(0.12,0.05,0,1500);},
+  engineStart:()=>{for(let k=0;k<5;k++){tone(70+k*14,0.09,'sawtooth',0.07,30,k*0.09);noise(0.06,0.06,k*0.09,900);}tone(120,0.6,'sawtooth',0.05,90,0.45);},
+  engineStop:()=>{tone(150,0.7,'sawtooth',0.06,-100);for(let k=0;k<3;k++)noise(0.07,0.06,0.25+k*0.16,700);},
+  zoom:()=>{tone(260,0.45,'sawtooth',0.05,200);noise(0.4,0.08,0,2500);},
   cheer:()=>{arp([523,659,784,1046],0.07,'triangle',0.15);noise(0.6,0.08,0,3000);}
 };
 // Original sea-shanty style tune (D minor, jig feel). [midi, eighths]
@@ -107,19 +110,74 @@ const MEL=[[62,1],[65,1],[69,1],[69,1],[67,1],[65,1],[64,1],[67,1],[70,1],[69,1]
  [74,1],[72,1],[70,1],[69,1],[67,1],[65,1],[67,1],[69,1],[70,1],[69,1],[65,1],[62,1],[70,1],[69,1],[67,1],[65,1],[64,1],[62,1],[64,1],[61,1],[57,1],[62,3]];
 const BASS=[50,50,43,50,50,50,48,50, 53,53,43,50,43,50,48,45, 50,50,43,50,50,50,45,50, 46,48,46,50,46,45,45,50];
 const SONG=[];(()=>{let pos=0;for(const[n,l]of MEL){SONG[pos]={m:n,l};pos+=l;}for(let i=0;i<pos;i++)if(!SONG[i])SONG[i]=null;})();
-const MUS={on:false,next:0,i:0,step:0.17,tr:0};
+const MUS={on:false,next:0,i:0,step:0.17,tr:0,song:'shanty'};
 const mf=m=>440*Math.pow(2,(m-69)/12);
+const seqFrom=mel=>{const s=[];let pos=0;for(const[n,l]of mel){s[pos]=n?{m:n,l}:null;pos+=l;}for(let i=0;i<pos;i++)if(!s[i])s[i]=null;return s;};
+/* Coral Lagoon: a slow, dreamy underwater waltz (3/4, F major). Soft sine lead with a gentle echo,
+   rippling triangle arpeggios underneath, and only a whisper of percussion. Original tune. */
+const LAGOON_MEL=[[69,2],[72,2],[77,2],[76,4],[74,2],[72,2],[69,2],[67,2],[69,6],
+  [70,2],[74,2],[77,2],[81,4],[79,2],[77,2],[76,2],[74,2],[76,6],
+  [69,2],[72,2],[77,2],[79,3],[77,1],[76,2],[74,2],[77,2],[81,2],[79,6],
+  [82,2],[81,2],[79,2],[77,2],[76,2],[74,2],[72,2],[76,2],[79,2],[77,6]];
+const LAGOON_CH=[[53,1],[48,1],[53,1],[53,1],[46,1],[50,0],[46,1],[48,1],[53,1],[48,1],[50,0],[48,1],[43,0],[46,1],[48,1],[53,1]]; // [root, major?]
+const LAGOON_SEQ=seqFrom(LAGOON_MEL);
+/* Mount Kaboom: a driving, rumbly E-minor rock riff. Growly sawtooth bass that chugs on every
+   eighth note, a punchy square lead, and a big kick/snare beat, like the mountain is about to blow. */
+const VOLC_MEL=[[76,2],[74,1],[76,1],[79,2],[76,2],[74,1],[72,1],[71,2],[69,2],[71,2],[76,2],[74,1],[76,1],[79,2],[81,2],[83,4],[81,2],[79,2],
+  [84,2],[83,1],[81,1],[79,2],[81,2],[83,2],[81,1],[79,1],[78,2],[74,2],[76,2],[79,2],[78,2],[75,2],[76,6],[0,2]];
+const VOLC_BASS=[40,40,40,40,36,36,35,35];
+const VOLC_SEQ=seqFrom(VOLC_MEL);
+const SONGS={
+  shanty:{len:()=>SONG.length,tick(i,d){const ev=SONG[i];
+    if(ev)tone(mf(ev.m+MUS.tr),MUS.step*ev.l*0.9,'square',0.045,0,d,musicBus);
+    if(i%3===0){const b=BASS[(i/3)%BASS.length];tone(mf(b-12+MUS.tr),MUS.step*2.6,'triangle',0.16,0,d,musicBus);noise(0.05,0.05,d,6000,musicBus);}
+    else noise(0.03,0.02,d,8000,musicBus);}},
+  lagoon:{len:()=>LAGOON_SEQ.length,tick(i,d){const ev=LAGOON_SEQ[i],st=MUS.step;
+    if(ev){tone(mf(ev.m+MUS.tr),st*ev.l*1.1,'sine',0.11,0,d,musicBus);tone(mf(ev.m+12+MUS.tr),st*ev.l*0.8,'sine',0.02,0,d,musicBus);
+      tone(mf(ev.m+MUS.tr),st*ev.l,'sine',0.04,0,d+st*3,musicBus);}               // soft echo, like sound under water
+    const bar=Math.floor(i/6)%LAGOON_CH.length,[r,maj]=LAGOON_CH[bar],k=i%6,third=maj?4:3;
+    const arp=[r-12,r+7-12,r,r+third,r+7,r+third][k];                            // rippling waltz arpeggio
+    tone(mf(arp+MUS.tr),st*(k===0?5.5:2.2),'triangle',k===0?0.16:0.07,0,d,musicBus);
+    if(k===0)noise(0.25,0.025,d,900,musicBus);else if(k===3)noise(0.08,0.012,d,3000,musicBus);}},
+  volcano:{len:()=>VOLC_SEQ.length,tick(i,d){const ev=VOLC_SEQ[i],st=MUS.step;
+    if(ev){tone(mf(ev.m+MUS.tr),st*ev.l*0.85,'square',0.05,0,d,musicBus);tone(mf(ev.m-12+MUS.tr),st*ev.l*0.7,'sawtooth',0.018,0,d,musicBus);}
+    const bar=Math.floor(i/8)%VOLC_BASS.length,k=i%8,r=VOLC_BASS[bar];
+    const b=[r,r,r+12,r,r+3,r,r+5,r+3][k];tone(mf(b-12+MUS.tr),st*0.8,'sawtooth',0.075,0,d,musicBus);
+    if(k===0||k===4||k===5){tone(110,0.16,'sine',0.35,-70,d,musicBus);}           // kick drum
+    if(k===2||k===6)noise(0.14,0.13,d,2600,musicBus);                              // snare
+    else noise(0.03,0.025,d,9000,musicBus);}}                                       // hi-hat
+};
 function musicStart(){if(!AC)return;MUS.on=true;MUS.next=AC.currentTime+0.1;MUS.i=0;}
 function musicStop(){MUS.on=false;}
 function musicTick(){
-  if(!AC||!MUS.on)return;
+  if(!AC||!MUS.on)return;const sg=SONGS[MUS.song]||SONGS.shanty;
   while(MUS.next<AC.currentTime+0.25){
-    const i=MUS.i%SONG.length,ev=SONG[i],d=MUS.next-AC.currentTime;
-    if(ev)tone(mf(ev.m+MUS.tr),MUS.step*ev.l*0.9,'square',0.045,0,d,musicBus);
-    if(i%3===0){const b=BASS[(i/3)%BASS.length];tone(mf(b-12+MUS.tr),MUS.step*2.6,'triangle',0.16,0,d,musicBus);noise(0.05,0.05,d,6000,musicBus);}
-    else noise(0.03,0.02,d,8000,musicBus);
+    const d=Math.max(0,MUS.next-AC.currentTime);sg.tick(MUS.i%sg.len(),d);
     MUS.next+=MUS.step;MUS.i++;
   }
+}
+
+/* Skye's airplane engine: a buzzy propeller drone that's on while the boys fly.
+   Speeding up (RIGHT) raises the pitch, slowing down lowers it, climbing strains it a bit higher. */
+const ENG={on:false,o1:null,o2:null,lfo:null,g:null,f:null};
+function engineSet(want,vx,vy){
+  if(!AC)return;const t=AC.currentTime;
+  if(want&&!ENG.o1){
+    ENG.g=AC.createGain();ENG.g.gain.value=0;ENG.f=AC.createBiquadFilter();ENG.f.type='lowpass';ENG.f.frequency.value=1100;
+    const am=AC.createGain();am.gain.value=0.5;
+    ENG.o1=AC.createOscillator();ENG.o1.type='sawtooth';ENG.o2=AC.createOscillator();ENG.o2.type='square';
+    ENG.lfo=AC.createOscillator();ENG.lfo.type='sine';const lg=AC.createGain();lg.gain.value=0.5;  // propeller "chop"
+    ENG.lfo.connect(lg);lg.connect(am.gain);
+    ENG.o1.connect(ENG.f);ENG.o2.connect(ENG.f);ENG.f.connect(am);am.connect(ENG.g);ENG.g.connect(master);
+    ENG.o1.frequency.value=80;ENG.o2.frequency.value=121;ENG.lfo.frequency.value=24;
+    ENG.o1.start();ENG.o2.start();ENG.lfo.start();
+  }
+  if(!ENG.o1)return;
+  if(want){const f=62+vx*11-vy*3;
+    ENG.o1.frequency.setTargetAtTime(f,t,0.12);ENG.o2.frequency.setTargetAtTime(f*1.51,t,0.12);ENG.lfo.frequency.setTargetAtTime(f*0.32,t,0.12);
+    ENG.g.gain.setTargetAtTime(0.06,t,0.15);ENG.on=true;}
+  else if(ENG.on){ENG.g.gain.setTargetAtTime(0,t,0.12);ENG.on=false;
+    const o=[ENG.o1,ENG.o2,ENG.lfo];setTimeout(()=>{if(!ENG.on){o.forEach(x=>{try{x.stop();}catch(e){}});if(ENG.o1===o[0]){ENG.o1=ENG.o2=ENG.lfo=null;}}},900);}
 }
 
 /* ---------------- HELPERS ---------------- */
@@ -199,6 +257,7 @@ function drawNoah(pose,t,o){
   ctx.save();rr(-9,-37,18,21,6);ctx.clip();ctx.fillStyle=SH2;for(let i=0;i<3;i++)ctx.fillRect(-9,-33+i*6,18,2.5);ctx.restore();
   ctx.fillStyle='#c0392b';ctx.fillRect(-9,-19,18,3.5);
   const hx=1,hy=-47;
+  ctx.save();if(o.headTilt){ctx.translate(1,-36);ctx.rotate(-o.headTilt);ctx.translate(-1,36);} // swimming: lift the head to look ahead
   if(o.stat)hairSpikes(hx,hy-2,12.5,HR,t,13);
   ctx.fillStyle=SK;circ(hx,hy,12.5);ctx.fill();
   if(!o.stat)noahHair(hx,hy,HR,HR2);
@@ -210,6 +269,7 @@ function drawNoah(pose,t,o){
   ctx.strokeStyle=HR2;ctx.lineWidth=1.4;ctx.beginPath();ctx.moveTo(1.5,-52.5);ctx.lineTo(5.5,-53);ctx.moveTo(8.5,-53);ctx.lineTo(12.5,-52.5);ctx.stroke();
   ctx.fillStyle='rgba(240,110,110,.4)';circ(1,-42.5,2.4);ctx.fill();
   smile(2.5,12,-42.5,air||up?7.5:5.5);
+  ctx.restore();
   const fa=up?-2.9:air?-2.5:sw*0.9-0.1;limb(4,-34,fa,6,SH,7);limb(4,-34,fa,15,SK,5);
   if(o.ball)basketball(2,-71,8,t*0.1);
 }
@@ -237,6 +297,7 @@ function drawBenny(pose,t,o){
   ctx.save();ell(0,-14,8.5,8);ctx.clip();ctx.fillStyle='#fff';ctx.fillRect(-9,-15,18,2);ctx.fillRect(-9,-10,18,2);ctx.restore();
   ctx.fillStyle='#d92b2b';ctx.beginPath();ctx.moveTo(-5,-21);ctx.lineTo(7,-21);ctx.lineTo(2,-15.5);ctx.closePath();ctx.fill();
   const hx=1,hy=-29;
+  ctx.save();if(o.headTilt){ctx.translate(1,-20);ctx.rotate(-o.headTilt);ctx.translate(-1,20);}
   if(o.stat)hairSpikes(hx,hy-1,11,HR,t,11);
   ctx.fillStyle=SK;circ(hx,hy,11.5);ctx.fill();
   if(!o.stat)bennyHair(hx,hy,HR,HR2);
@@ -248,6 +309,7 @@ function drawBenny(pose,t,o){
   ctx.fillStyle='#fff';circ(5,-29.4,0.7);ctx.fill();circ(11.2,-29.4,0.7);ctx.fill();
   ctx.fillStyle='rgba(245,120,120,.45)';circ(0.5,-24.5,3);ctx.fill();circ(12.5,-24.5,2.2);ctx.fill();
   ctx.fillStyle='#c4504a';ctx.beginPath();ctx.moveTo(4,-24);ctx.quadraticCurveTo(7.2,air||up?-17:-19.5,10.4,-24);ctx.closePath();ctx.fill();
+  ctx.restore();
     const fa=up?-2.9:air?-1.5:sw*0.9-0.2;limb(3,-19,fa,4,SH,5.5);limb(3,-19,fa,9,SK,4.5);
 }
 function drawKid(who,x,y,face,pose,t,alpha,o){
@@ -838,14 +900,16 @@ function setWho(w){const bottom=P.y+P.h,cx=P.x+P.w/2;P.who=w;P.w=CH[w].w;P.h=CH[
 function startLevel(n){
   L=LEVELS[n]();L.t=0;cheatPos=0;
   // the dock stops where the Irish Rover begins, and the boat floats in open water
-  if(L.ship&&L.mode!=='boat'&&!L.noPlank){const sc=Math.floor((L.ship.x+20)/T);for(let c=sc;c<L.cols;c++)for(let r=0;r<ROWS;r++)L.grid[r][c]=0;L.seaCol=Math.min(L.seaCol,sc);L.dockEnd=sc*T;}
+  if(L.ship&&L.mode!=='boat'&&!L.noPlank){const sc=Math.floor((L.ship.x+20)/T);for(let c=sc;c<L.cols;c++)for(let r=0;r<ROWS;r++)L.grid[r][c]=0;L.seaCol=Math.min(L.seaCol,sc);L.dockEnd=sc*T;
+    // where the dock really ends (some docks stop a tile short of the boat): the gangplank starts there
+    L.plank=null;for(let c=sc-1;c>sc-6&&!L.plank;c--)for(let r=0;r<ROWS;r++)if(L.grid[r][c]){L.plank={x:(c+1)*T,y:r*T};break;}}
   resetEnemies();lives=Math.max(lives,5);
   G={coins:0,total:L.coins.length,kcoin:false,time:0,deaths:0};
   for(const bb of L.buddy){const gt=groundTop(Math.floor(bb.x/T));if(gt<ROWS*T)bb.y=gt;}
   respawn={x:L.start.x,y:L.start.y};resetPlayer(respawn.x,respawn.y);if(L.mode==='boat')initBoat(L.start.x);
   cam.x=0;parts=[];fx=[];POP=null;STATE='play';
   startDialog(L.intro,L.introDone||null);
-  MUS.tr=L.music.tr;MUS.step=L.music.step;musicStart();
+  MUS.song=L.music.song||'shanty';MUS.tr=L.music.tr;MUS.step=L.music.step;musicStart();
 }
 function startDialog(lines,onDone){DLG={lines,i:0,ch:0,onDone};}
 function updateDialog(){
@@ -1366,7 +1430,7 @@ function boatHoist(){
 function buildLevel4(){
   const [L,h]=newLevel(4,'Coral Lagoon','reef',200);
   const g=L.grid;
-  L.music={tr:-5,step:0.2};L.water={x0:12*T,y:160};L.seaCol=0;L.beachEnd=190;
+  L.music={tr:0,step:0.19,song:'lagoon'};L.water={x0:12*T,y:160};L.seaCol=0;L.beachEnd=190;
   const pillar=(x,w,ht)=>{for(let i=0;i<w;i++)for(let r=ROWS-ht;r<ROWS;r++)g[r][x+i]=1;};
   const ceil=(x,w,rows)=>{for(let i=0;i<w;i++)for(let r=4;r<4+rows;r++)g[r][x+i]=1;};
   const sea=(type,x,r,range,ph)=>L.spawns.push({type,x:x*T+T/2,r,range,ph:ph||0});
@@ -1443,7 +1507,7 @@ function swimUpdate(){
   if(frame%45===0)parts.push({x:P.x+P.w/2+P.face*8,y:P.y+6,vx:0,vy:-1.2,life:40,col:'rgba(220,245,255,.7)',g:-0.01,size:3});
   P.prevBottom=P.y+P.h;moveX(P,P.vx);P.onGround=false;moveY(P,P.vy);
   if(P.x<0)P.x=0;if(P.x>L.cols*T-P.w)P.x=L.cols*T-P.w;
-  P.hist.push({x:P.x+P.w/2,y:P.y+P.h,face:P.face,air:true,mv:true,swim:true});if(P.hist.length>40)P.hist.shift();
+  P.hist.push({x:P.x+P.w/2,y:P.y+P.h,face:P.face,air:!P.onGround,mv:Math.abs(P.vx)>0.4,swim:!P.onGround,vy:P.vy});if(P.hist.length>40)P.hist.shift();
   collectStuff();
   for(const bb of L.buddy)if(!bb.broken&&!P.partner&&Math.abs(P.x+P.w/2-bb.x)<30&&P.y+P.h>bb.y-50&&P.y<bb.y){
     bb.broken=true;P.partner=true;P.hist=[];P.px=bb.x;P.py=bb.y;SFX.buddy();burst(bb.x,bb.y-24,22,'#8a5527',5,0.3,4);}
@@ -1937,7 +2001,7 @@ function drawLanternHandoff(){
 const RIDES={papa:RIDE,mama:{speed:3.8,jump:12.8,strong:false}};
 function buildLevel7(){
   const [L,h]=newLevel(7,'Mount Kaboom','volcano',212);
-  const g=L.grid;L.music={tr:-2,step:0.15};L.mamaCrates=[];L.vents=[];L.seaCol=204;
+  const g=L.grid;L.music={tr:0,step:0.135,song:'volcano'};L.mamaCrates=[];L.vents=[];L.seaCol=204;
   const stone=(x,w,r)=>{for(let i=0;i<w;i++)for(let rr=r;rr<ROWS;rr++)g[rr][x+i]=1;};
   const mama=x=>L.mamaCrates.push({x:x*T+T/2,y:10*T,broken:false});
   const vent=(x,top)=>L.vents.push({x:x*T,w:70,top});
@@ -2236,7 +2300,7 @@ ENDLINES[8]=g=>[['cayla','Wonderful flying, boys! Skye says ye are the best co-p
 function mountPlane(mc){
   mc.broken=true;const cx=P.x+P.w/2;
   P.ride='plane';P.roll=0;P.w=110;P.h=70;P.x=cx-55;P.y=mc.y-120;P.vy=-4;P.flapT=14;P.onGround=false;P.face=1;
-  SFX.buddy();burst(mc.x,mc.y-30,26,'#fff',5,0.3,4);burst(mc.x,mc.y-30,14,'#3aa05a',4,0.3,3);POP={text:'SKYE!',t:0};
+  SFX.buddy();SFX.engineStart();burst(mc.x,mc.y-30,26,'#fff',5,0.3,4);burst(mc.x,mc.y-30,14,'#3aa05a',4,0.3,3);POP={text:'SKYE!',t:0};
 }
 function landPlane(p){
   const gt=groundTop(Math.floor(p.park/T));if(gt>=ROWS*T)return false;
@@ -2248,7 +2312,7 @@ function landPlane(p){
 function boardParked(){
   for(const p of (L.parkedList||[]))if(p.board&&!p.taken&&L.t-p.start>60&&Math.abs(P.x+P.w/2-p.x)<44&&P.y+P.h>p.y-80){
     p.taken=true;P.ride='plane';P.roll=0;P.w=110;P.h=70;P.x=p.x-55;P.y=p.y-P.h-30;P.vy=-2;P.vx=2.8;P.face=1;P.onGround=false;
-    SFX.buddy();POP={text:'SKYE!',t:0};return;}
+    SFX.buddy();SFX.engineStart();POP={text:'SKYE!',t:0};return;}
 }
 function planeHurt(){
   if(P.inv>0||P.star>0)return;
@@ -2272,7 +2336,7 @@ function flyUpdate(){
   for(const m of (L.masts||[]))if(overlap(P,mastRect(m),8))planeHurt();
   if(P.state!=='play')return;
   for(const s of L.stars)if(!s.used&&Math.abs(P.x+P.w/2-s.x)<44&&Math.abs(P.y+P.h/2-(s.y-24))<52){s.used=true;P.partner=true;P.star=600;POP={text:'SUPER POWER!',t:0};SFX.star&&SFX.star();burst(s.x,s.y-24,30,'#ffd23f',5,0.05,4);}
-  for(const p of L.perches)if(P.x+P.w/2>p.x&&P.x+P.w/2<p.x+60){if(landPlane(p)){POP={text:'THANKS, SKYE!',t:0};SFX.cheer&&SFX.cheer();}break;}
+  for(const p of L.perches)if(P.x+P.w/2>p.x&&P.x+P.w/2<p.x+60){if(landPlane(p)){SFX.engineStop();POP={text:'THANKS, SKYE!',t:0};SFX.cheer&&SFX.cheer();}break;}
   if(P.ride!=='plane')return;
   P.hist.push({x:P.x+P.w/2,y:P.y+P.h,face:P.face,air:true,mv:true});if(P.hist.length>40)P.hist.shift();
   collectStuff();
@@ -2923,27 +2987,47 @@ function paintMapScenery(){
 
 /* ---------- map update / draw (replace the old zig-zag map) ---------- */
 function mapPlaceAt(n){if(!MAP_PATH)buildMapPath();MAP.sel=n;MAP.s=mapTargetS();const p=mapPointAt(MAP.s);MAP.rx=p.x;MAP.ry=p.y;MAP.cx=clamp(p.x-W/2,0,MAP_WORLD_W-W);}
+const MAP_KEYV={left:[-1,0],right:[1,0],up:[0,-1],down:[0,1]};
+// which way the dotted path heads when leaving distance s (dir +1 = toward the next island, -1 = back)
+function mapDirAt(s,dir){const a=mapPointAt(s),b=mapPointAt(s+dir*80);const dx=b.x-a.x,dy=b.y-a.y,l=Math.hypot(dx,dy)||1;return [dx/l,dy/l];}
+// the arrow key for each neighbouring island from the current dock
+function mapChoices(maxSel){
+  const s=MAP_PATH.stopD[MAP.sel]||0,out=[];
+  for(const dir of [1,-1]){const to=MAP.sel+dir;if(to<1||to>maxSel)continue;const v=mapDirAt(s,dir);
+    const ranked=Object.keys(MAP_KEYV).map(k=>({k,d:MAP_KEYV[k][0]*v[0]+MAP_KEYV[k][1]*v[1]})).sort((a,b)=>b.d-a.d);out.push({to,v,ranked});}
+  if(out.length===2&&out[0].ranked[0].k===out[1].ranked[0].k){ // both paths lean the same way: the closer match keeps that arrow
+    const [a,b]=out[0].ranked[0].d>=out[1].ranked[0].d?[out[0],out[1]]:[out[1],out[0]];a.key=a.ranked[0].k;b.key=b.ranked[1].k;}
+  else out.forEach(o=>o.key=o.ranked[0].k);
+  return out;
+}
 function mapTargetS(){return MAP_PATH.stopD[MAP.sel]||0;}
 function openMap(fromClear){
   if(!MAP_PATH)buildMapPath();
   STATE='map';MAP.sel=Math.min(SAVE.unlocked,LEVELS.length-1);if(fromClear&&L)MAP.sel=L.num;
   MAP.s=mapTargetS();const p=mapPointAt(MAP.s);MAP.rx=p.x;MAP.ry=p.y;MAP.face=1;MAP.cx=clamp(p.x-W/2,0,MAP_WORLD_W-W);
   if(fromClear){MAP.sel=L.num;
-    startDialog([['cayla',"Ahoy, lads! I'm Captain Cayla, keeper of the treasure map."],['cayla',"I've marked yer progress on me map. Yer game is saved!"],['cayla','Pick an island with ◀ ▶ and press B to sail there.']],null);
+    startDialog([['cayla',"Ahoy, lads! I'm Captain Cayla, keeper of the treasure map."],['cayla',"I've marked yer progress on me map. Yer game is saved!"],['cayla','Press the arrow that points along the dotted path, then press B to sail there.']],null);
     if(SAVE.seenCayla)DLG.lines=[['cayla',"Well done, me hearties! I've marked it on the map. Game saved!"]];SAVE.seenCayla=true;saveGame();}
-  MUS.tr=0;MUS.step=0.19;musicStart();
+  MUS.song='shanty';MUS.tr=0;MUS.step=0.19;musicStart();
 }
 function updateMap(){
   if(!MAP_PATH)buildMapPath();if(MAP.s===undefined)MAP.s=mapTargetS();
   if(DLG){updateDialog();return;}
   const maxSel=Math.min(SAVE.unlocked,MAPN.length-1);
-  if(pressed('left')&&MAP.sel>1){MAP.sel--;SFX.blip();}if(pressed('right')&&MAP.sel<maxSel){MAP.sel++;SFX.blip();}
+  // arrows follow the dotted path the way it looks on screen: from a dock, press the arrow that points along the path
+  const docked=Math.abs(mapTargetS()-MAP.s)<4;
+  for(const k of ['left','right','up','down'])if(pressed(k)){
+    if(docked){const ch=mapChoices(maxSel).find(c=>c.key===k);if(ch){MAP.sel=ch.to;SFX.blip();}}
+    else{ // while sailing, the arrow pointing back the way we came turns the Rover around
+      const fwd=mapTargetS()>MAP.s?1:-1,v=mapDirAt(MAP.s,fwd),d=MAP_KEYV[k];
+      if(d[0]*v[0]+d[1]*v[1]<-0.5){const back=MAP.sel-fwd;if(back>=1&&back<=maxSel){MAP.sel=back;SFX.blip();}}}}
   const tgt=mapTargetS(),diff=tgt-MAP.s;
   if(Math.abs(diff)>0.5){const step=Math.sign(diff)*Math.min(Math.abs(diff),Math.max(1.8,Math.min(9,Math.abs(diff)*0.06)));MAP.s+=step;}else MAP.s=tgt;
   const p=mapPointAt(MAP.s);if(Math.abs(p.x-MAP.rx)>0.3)MAP.face=p.x>MAP.rx?1:-1;MAP.rx=p.x;MAP.ry=p.y;
   MAP.cx+=(clamp(MAP.rx-W/2,0,MAP_WORLD_W-W)-MAP.cx)*0.1;
   if(pressed('jump')&&Math.abs(tgt-MAP.s)<4){if(LEVELS[MAP.sel]){musicStop();startLevel(MAP.sel);}else POP={text:'Coming soon!',t:0};}
   if(pressed('swap')){STATE_BEFORE_CAST='map';STATE='cast';}
+  if(pressed('pause')){musicStop();POP=null;STATE='title';SFX.blip();} // back to the main menu (progress is already saved)
 }
 function drawMap(){
   if(!MAP_PATH)buildMapPath();if(!MAP_CACHE)paintMapScenery();if(MAP.s===undefined){MAP.s=mapTargetS();}
@@ -2974,6 +3058,10 @@ function drawMap(){
   const moving=Math.abs(mapTargetS()-MAP.s)>1,bob=Math.sin(frame*0.06)*2;
   if(moving){ctx.strokeStyle='rgba(255,255,255,.7)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(MAP.rx-MAP.face*30,MAP.ry+8);ctx.lineTo(MAP.rx-MAP.face*48,MAP.ry+2);ctx.moveTo(MAP.rx-MAP.face*30,MAP.ry+10);ctx.lineTo(MAP.rx-MAP.face*48,MAP.ry+16);ctx.stroke();}
   drawRover(MAP.rx-36,MAP.ry-4+bob,0.17,frame,!roverHasDinghy());
+  if(!DLG&&Math.abs(mapTargetS()-MAP.s)<4){const pulse=1+Math.sin(frame*0.15)*0.12;
+    for(const ch of mapChoices(Math.min(SAVE.unlocked,MAPN.length-1))){const v=MAP_KEYV[ch.key],ax=MAP.rx+v[0]*62+ch.v[0]*8,ay=MAP.ry-14+v[1]*50+ch.v[1]*8;
+      ctx.save();ctx.translate(ax,ay);ctx.scale(pulse,pulse);ctx.fillStyle='rgba(24,16,8,.75)';ctx.beginPath();ctx.arc(0,0,17,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle='#ffd23f';ctx.lineWidth=2.5;ctx.stroke();ctx.rotate(Math.atan2(v[1],v[0]));ctx.fillStyle='#ffd23f';ctx.beginPath();ctx.moveTo(10,0);ctx.lineTo(-6,-9);ctx.lineTo(-6,9);ctx.closePath();ctx.fill();ctx.restore();}}
   ctx.restore();
   // edges, title, and Cayla's map room bar
   if(MAP.cx>4)txt('◀',22,230,30,'#fff','center');if(MAP.cx<MAP_WORLD_W-W-4)txt('▶',W-22,230,30,'#fff','center');
@@ -2982,7 +3070,8 @@ function drawMap(){
   if(!DLG){drawPortrait('cayla',14,MAP_SEA_H+10,62,false);
     const n=MAPN[MAP.sel];txt(MAP.sel+'. '+n.name,92,MAP_SEA_H+30,22,'#6b3a14',undefined,false);
     txt("Treasure Map  ·  Captain Cayla's Map Room",92,MAP_SEA_H+58,15,'#8a5a28',undefined,false);
-    txt('◀ ▶ choose    B sail!    A crew',W-24,MAP_SEA_H+44,20,'#6b3a14','right',false);}
+    txt('Arrows follow the path    B sail!    A crew',W-24,MAP_SEA_H+30,20,'#6b3a14','right',false);
+    txt('START  main menu',W-24,MAP_SEA_H+58,15,'#8a5a28','right',false);}
   if(POP)txt(POP.text,W/2,120,40,'#fff','center');
 }
 
@@ -3123,9 +3212,27 @@ function drawBuddy(bb){
   ctx.fillStyle='#8a5527';rr(-21,-48,42,48,10);ctx.fill();ctx.fillStyle='#555';ctx.fillRect(-21,-40,42,5);ctx.fillRect(-21,-12,42,5);
   ctx.fillStyle='#fff';circ(0,-24,14);ctx.fill();txt('N+B',0,-24,11,'#c0392b','center',false);ctx.restore();
 }
+// swimming kids lie flat (head first), tipping up a little when rising and down when sinking
+const swimTilt=vy=>Math.PI/2+clamp(vy*0.12,-0.45,0.35);
 function drawPlayerKid(who,x,y,face,pose,t,o){
   if(P.star>0&&!(P.star<120&&(frame>>2)%2)){ctx.fillStyle=`hsla(${frame*8%360},100%,65%,.35)`;circ(x,y-(who==='noah'?28:18),who==='noah'?36:26);ctx.fill();}
   drawKid(who,x,y,face,pose,t,1,Object.assign({stat:P.star>0},o||{}));
+}
+// a wooden gangplank resting on the end of the dock and hooked over the Rover's stern rail
+function drawGangplank(dock,shipX,deckY){
+  const x1=Math.min(dock.x-34,shipX-60),y1=dock.y,x2=shipX+18,y2=deckY-3;
+  const a=Math.atan2(y2-y1,x2-x1),len=Math.hypot(x2-x1,y2-y1);
+  ctx.save();ctx.translate(x1,y1);ctx.rotate(a);
+  ctx.fillStyle='rgba(0,0,0,.18)';ctx.fillRect(2,0,len,6);                 // shadow under the board
+  ctx.fillStyle='#9a6232';rr(0,-8,len,9,3);ctx.fill();                       // the board
+  ctx.fillStyle='#7a4a22';for(let u=10;u<len-6;u+=13)ctx.fillRect(u,-8,3,9); // cleats so little feet don't slip
+  ctx.strokeStyle='#5e3818';ctx.lineWidth=1.5;rr(0,-8,len,9,3);ctx.stroke();
+  // rope handrail on posts
+  ctx.strokeStyle='#6e4320';ctx.lineWidth=3;[6,len*0.5,len-8].forEach(u=>{ctx.beginPath();ctx.moveTo(u,-8);ctx.lineTo(u,-30);ctx.stroke();});
+  ctx.strokeStyle='#d9c28a';ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(6,-29);ctx.quadraticCurveTo(len*0.27,-22,len*0.5,-29);ctx.quadraticCurveTo(len*0.75,-22,len-8,-29);ctx.stroke();
+  ctx.restore();
+  // iron hooks over the hull edge
+  ctx.fillStyle='#3a3a40';ctx.fillRect(x2-3,y2-2,8,7);
 }
 function render(){
   if(L.theme==='jungle')drawJungleBG(cam.x);else if(L.theme==='reef')drawReefBG(cam.x);else if(L.theme==='port')drawPortBG(cam.x);else if(L.theme==='wreck')drawWreckBG(cam.x);else if(L.theme==='volcano')drawVolcanoBG(cam.x);else if(L.theme==='sky')drawSkyBG(cam.x);else if(L.theme==='fort')drawFortBG(cam.x);else drawBeachBG(cam.x);
@@ -3133,7 +3240,7 @@ function render(){
   if(L.lighthouse&&cam.x<L.lighthouse.x+300)drawLighthouse(L.lighthouse.x,450);
   if(L.cottage&&cam.x<L.cottage.x+400)drawCottage(L.cottage.x,L.cottage.y);
   if(L.ship&&cam.x+W>L.ship.x-120){const sy=L.shipY||412;drawRover(L.ship.x,sy,L.shipScale||1,frame,!roverHasDinghy());
-    if(!L.noPlank){ctx.strokeStyle='#8a5527';ctx.lineWidth=10;ctx.beginPath();ctx.moveTo(L.dockEnd||L.goal.capX+2*T,450);ctx.lineTo(L.ship.x+60,sy+2);ctx.stroke();}}
+    if(!L.noPlank)drawGangplank(L.plank||{x:L.dockEnd||L.ship.x,y:450},L.ship.x,sy);}
   for(const r of L.ropes)if(Math.abs(r.ax-cam.x-W/2)<W)drawRope(r);
   drawMasts();
   drawTiles();
@@ -3177,18 +3284,21 @@ function render(){
   else if(P.partner&&!P.ride&&(P.state==='play'||P.state==='win')){
     const other=P.who==='noah'?'benny':'noah',h=P.hist,idx=Math.max(0,h.length-16),hp=h[idx];
     let tx=hp?hp.x:P.x,ty=hp?hp.y:P.y+P.h;const lx=P.x+P.w/2;
-    if(P.state!=='rope'&&Math.abs(tx-lx)<32)tx=lx-P.face*32;
+    const gap=P.swimming&&hp&&hp.swim?62:32;if(P.state!=='rope'&&Math.abs(tx-lx)<gap)tx=lx-P.face*gap;
     P.px+=(tx-P.px)*0.25;P.py=ty;
-    const pose=hp&&hp.swim?'run':hp&&hp.air&&P.state!=='rope'?'jump':(hp&&hp.mv?'run':'idle');
-    drawPlayerKid(other,P.px,P.py,hp?hp.face:P.face,pose,frame+8);
+    const pSwim=!!(hp&&hp.swim&&P.swimming);P.pSwimAng=(P.pSwimAng||0)+((pSwim?swimTilt(hp.vy||0):0)-(P.pSwimAng||0))*0.2;
+    const pose=pSwim?'run':hp&&hp.air&&P.state!=='rope'?'jump':(hp&&hp.mv?'run':'idle');
+    drawPlayerKid(other,P.px,P.py,hp?hp.face:P.face,pose,pSwim?frame*0.7+8:frame+8,Math.abs(P.pSwimAng)>0.02?{spin:P.pSwimAng,headTilt:P.pSwimAng*0.8}:null);
   }
   for(const f of fx)drawKid(f.who,f.x,f.y,f.face,'jump',f.t,Math.max(0,1-f.t/90),{});
   drawPapaRun();
   if(P.state!=='barrel'&&P.state!=='dunk'){
-    const pose=P.state==='dead'?'jump':P.swimming&&P.state==='play'?(P.swimT>0?'jump':Math.abs(P.vx)>0.4?'run':'idle'):P.state==='rope'?'hang':P.state==='blast'?'roll':P.roll>0?'roll':!P.onGround?(P.vy<0?'jump':'fall'):Math.abs(P.vx)>0.4?'run':'idle';
+    const swimFlat=P.swimming&&P.state==='play'&&!P.onGround&&!P.ride;
+    P.swimAng=(P.swimAng||0)+((swimFlat?swimTilt(P.vy):0)-(P.swimAng||0))*0.2;
+    const pose=P.state==='dead'?'jump':P.swimming&&P.state==='play'?(swimFlat?'run':Math.abs(P.vx)>0.4?'run':'idle'):P.state==='rope'?'hang':P.state==='blast'?'roll':P.roll>0?'roll':!P.onGround?(P.vy<0?'jump':'fall'):Math.abs(P.vx)>0.4?'run':'idle';
     if(P.floating){ctx.fillStyle=`hsla(${frame*6%360},90%,75%,.8)`;for(let i=0;i<3;i++){circ(P.x+P.w/2-12+i*12,P.y+P.h+4,8);ctx.fill();}}
     if(P.ride){if(!(P.inv>0&&(frame>>2)%2))drawRide();}
-    else if(!(P.inv>0&&(frame>>2)%2))drawPlayerKid(P.who,P.x+P.w/2,P.y+P.h,P.face,pose,P.state==='blast'?frame*2:P.anim);
+    else if(!(P.inv>0&&(frame>>2)%2))drawPlayerKid(P.who,P.x+P.w/2,P.y+P.h,P.face,pose,P.state==='blast'?frame*2:swimFlat?frame*0.7:P.anim,Math.abs(P.swimAng)>0.02?{spin:P.swimAng,headTilt:P.swimAng*0.8}:null);
   }
   if(P.state!=='dead')drawHeldLantern();
   drawFgClouds();
@@ -3316,7 +3426,7 @@ function drawIsland(n,i,locked){
 }
 /* ================= MAIN LOOP ================= */
 function step(){
-  pollInput();frame++;musicTick();if(STATE==='play'){checkCheat();keepSuperStar();}
+  pollInput();frame++;musicTick();if(STATE==='play'){checkCheat();keepSuperStar();}engineSet(STATE==='play'&&L&&P&&P.ride==='plane'&&P.state==='play',P?P.vx:0,P?P.vy:0);
   if(STATE==='title'){if(pressed('jump')||pressed('pause')){audioUnlock();PROF.sel=SLOT;PROF.confirm=false;STATE='profiles';SFX.blip();}if(pressed('swap')){STATE_BEFORE_CAST='title';STATE='cast';}return;}
   if(STATE==='profiles'){updateProfiles();return;}
   if(STATE==='cast'){if(pressed('jump')||pressed('roll')||pressed('swap')||pressed('pause'))STATE=STATE_BEFORE_CAST;return;}
@@ -3346,7 +3456,7 @@ function draw(){
 let last=0,acc=0;
 function loop(ts){if(!last)last=ts;acc+=Math.min(100,ts-last);last=ts;while(acc>=1000/60){step();acc-=1000/60;}draw();requestAnimationFrame(loop);}
 requestAnimationFrame(loop);
-window.__G={step,draw,SRC,startLevel,openMap,mapPlaceAt,ropeAng,ropeW,get P(){return P},get L(){return L},get STATE(){return STATE},set STATE(v){STATE=v},get lives(){return lives},get G(){return G},get DLG(){return DLG},cam,SAVE,MAP};
+window.__G={step,draw,SRC,startLevel,openMap,mapPlaceAt,mapChoices,ropeAng,ropeW,get P(){return P},get L(){return L},get STATE(){return STATE},set STATE(v){STATE=v},get lives(){return lives},get G(){return G},get DLG(){return DLG},cam,SAVE,MAP};
 
 /* ================= GAME PROFILES ================= */
 const PROF={sel:1,confirm:false};
