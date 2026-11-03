@@ -674,7 +674,7 @@ function buildLevel1(){
   h.ground(149,153,2);h.ground(156,198,2);
   h.arc(146,149,8,1);h.arc(153,156,8,1);h.letter('Y',151,6.6);
   h.sign(157,'RAINBOW BARREL! Grab it for SUPER POWER!');
-  h.star(160);h.buddy(163);
+  h.buddy(163);
   h.enemy('bonehead',167);h.plank(170,7,4);h.row(170,173,6);
   h.enemy('crab',176);h.enemy('parrot',180,7,70);h.enemy('crab',185);h.enemy('bonehead',189);
   h.arc(186,191,9,2);
@@ -749,9 +749,20 @@ function endLines(n,g){const l=ENDLINES[n](g);return CAYLA_SENDOFF[n]?l.concat([
 /* ================= GAME STATE ================= */
 let STATE='title',L=null,P=null,G=null,DLG=null,lives=5,respawn=null,frame=0,clearT=0,POP=null;
 const cam={x:0};let parts=[],fx=[];
-let SAVE={unlocked:1};
-try{const s=JSON.parse(localStorage.getItem('nb_save')||'null');if(s&&s.unlocked)SAVE=s;}catch(e){}
-function saveGame(){try{localStorage.setItem('nb_save',JSON.stringify(SAVE));}catch(e){}}
+// Three separate games (profiles). Each keeps its own islands, so a new player can start over
+// without touching anyone else's progress.
+const SLOTS=3;let SLOT=1,SAVE={unlocked:1};
+function readSlot(i){try{const s=JSON.parse(localStorage.getItem('nb_slot'+i)||'null');if(s&&s.unlocked)return s;}catch(e){}return null;}
+function writeSlot(i,s){try{if(s)localStorage.setItem('nb_slot'+i,JSON.stringify(s));else localStorage.removeItem('nb_slot'+i);}catch(e){}}
+try{ // older single save becomes Game 1
+  const old=JSON.parse(localStorage.getItem('nb_save')||'null');if(old&&old.unlocked&&!readSlot(1))writeSlot(1,old);
+  SLOT=Math.min(SLOTS,Math.max(1,parseInt(localStorage.getItem('nb_lastslot')||'1',10)||1));}catch(e){}
+SAVE=readSlot(SLOT)||{unlocked:1};
+function useSlot(i){SLOT=i;SAVE=readSlot(i)||{unlocked:1};try{localStorage.setItem('nb_lastslot',String(i));}catch(e){}}
+function eraseSlot(i){writeSlot(i,null);if(i===SLOT)SAVE={unlocked:1};}
+function saveGame(){writeSlot(SLOT,SAVE);}
+// Rover Jr (the dinghy) only hangs on the Irish Rover's stern once Dinghy Dash (level 3) is done
+function roverHasDinghy(){return SAVE.unlocked>3;}
 // SECRET: at the START of any level (near where the boys begin, after the intro), press
 // UP, UP, DOWN, DOWN, LEFT, RIGHT, LEFT, RIGHT. Noah does the slam dunk and SUPER STAR lasts for
 // that level only: touching any enemy pops it and nothing hurts the boys, but they do NOT float
@@ -825,7 +836,10 @@ function resetPlayer(px,py){
 }
 function setWho(w){const bottom=P.y+P.h,cx=P.x+P.w/2;P.who=w;P.w=CH[w].w;P.h=CH[w].h;P.x=cx-P.w/2;P.y=bottom-P.h;}
 function startLevel(n){
-  L=LEVELS[n]();L.t=0;cheatPos=0;resetEnemies();lives=Math.max(lives,5);
+  L=LEVELS[n]();L.t=0;cheatPos=0;
+  // the dock stops where the Irish Rover begins, and the boat floats in open water
+  if(L.ship&&L.mode!=='boat'&&!L.noPlank){const sc=Math.floor((L.ship.x+20)/T);for(let c=sc;c<L.cols;c++)for(let r=0;r<ROWS;r++)L.grid[r][c]=0;L.seaCol=Math.min(L.seaCol,sc);L.dockEnd=sc*T;}
+  resetEnemies();lives=Math.max(lives,5);
   G={coins:0,total:L.coins.length,kcoin:false,time:0,deaths:0};
   for(const bb of L.buddy){const gt=groundTop(Math.floor(bb.x/T));if(gt<ROWS*T)bb.y=gt;}
   respawn={x:L.start.x,y:L.start.y};resetPlayer(respawn.x,respawn.y);if(L.mode==='boat')initBoat(L.start.x);
@@ -874,6 +888,7 @@ function fireBarrel(b){
 }
 function endBlast(){P.state='play';P.vx=P.bvx*0.4;P.vy=Math.max(P.bvy*0.3,-2);P.hist=[];P.px=P.x;P.py=P.y+P.h;}
 function startDunk(s){
+  if(P.ride&&!s.cheat){s.used=true;P.star=600;P.barrelStar=600;POP={text:'SUPER POWER!',t:0};SFX.star();burst(s.x,s.y-24,30,'#fff',5,0.1,4);return;}
   if(P.ride)dismountPapa(false);
   s.used=true;if(!P.partner)P.partner=true;if(P.who!=='noah')setWho('noah');
   const x0=P.x+P.w/2,y0=groundTop(Math.floor(x0/T));
@@ -1152,7 +1167,7 @@ function updateBoat(){
   if(P.state==='dead'){P.deadT++;if(P.deadMode==='bounce'){P.vy+=0.5;P.by+=P.vy;}if(P.deadT>110)afterDeath();boatBox();return;}
   if(P.state==='dunk'){updateDunk();if(P.state==='play'){P.state='go';P.onW=true;}boatBox();return;}
   if(P.state==='ready'){P.rt++;if(P.rt===1)POP={text:'READY...',t:40};if(P.rt===50){P.state='go';POP={text:'GO!',t:0};SFX.boom();}boatBox();return;}
-  if(P.state==='win'){boatBox();return;}
+  if(P.state==='win'){boatHoist();boatBox();return;}
   if(P.state==='loop'){const lp=L.loop;P.lt+=P.loopSpd/lp.R;const th=Math.min(P.lt,Math.PI*2);
     const cx=lp.x+lp.R*Math.sin(th)+lp.k*th,cy=lp.y-lp.R+lp.R*Math.cos(th);P.bx=cx-48;P.by=cy;
     const kx=cx-Math.sin(th)*30,ky=cy-Math.cos(th)*30;
@@ -1214,7 +1229,7 @@ function updateBoat(){
   for(const st of L.stars)if(!st.used&&Math.abs(st.x-(P.bx+70))<30&&P.by>st.y-60){boatStartDunk(st);return;}
   for(const cp of L.checkpoints)if(!cp.on&&cx>cp.x){cp.on=true;respawn={x:cp.x-20,y:300};SFX.check();burst(cp.x,250,16,'#ffd23f',3,0.1);}
   if(P.bx>=L.goal.x&&P.onW){P.bx=L.goal.x;P.state='win';P.star=0;P.inv=0;SFX.fanfare();musicStop();boatBox();
-    startDialog(endLines(3,G),()=>{STATE='clear';clearT=0;});}
+    P.hoist={t:0,x0:P.bx,y0:P.by};}
 }
 
 /* ---------- drawing ---------- */
@@ -1292,8 +1307,8 @@ function drawRiver(){
 function renderBoat(){
   const cy=Math.round(cam.y||0);drawRiverBG(cam.x,cy);
   ctx.save();ctx.translate(-Math.round(cam.x),-cy);
-  if(L.ship&&cam.x+W>L.ship.x-120){drawRover(L.ship.x,360,1,frame,true);drawSkyeSitting(L.ship.x+262,360,-1);drawAdult('cayla',L.ship.x+212,360,-1,frame,speaker()==='cayla',1);
-    drawAdult('james',L.ship.x+160,360,-1,frame,speaker()==='james',1);}
+  if(L.ship&&cam.x+W>L.ship.x-120){const dk=ROVER_DECK3;drawRover(L.ship.x,dk,1,frame,true);drawSkyeSitting(L.ship.x+262,dk,-1);drawAdult('cayla',L.ship.x+212,dk,-1,frame,speaker()==='cayla',1);
+    drawAdult('james',L.ship.x+160,dk,-1,frame,speaker()==='james',1);}
   if(cam.x<8*T){ctx.fillStyle='#8a5527';ctx.fillRect(0,312,4.2*T,10);ctx.fillStyle='#6e4320';for(let k=0;k<4;k++)ctx.fillRect(10+k*45,320,8,H);
     drawAdult('tim',2*T,312,1,frame,speaker()==='tim',1);}
   if(L.cheer&&Math.abs(L.cheer.x0-cam.x-W/2)<W){const c=L.cheer;ctx.fillStyle='#8a5527';ctx.fillRect(c.x0-10,c.y-6,170,8);ctx.fillStyle='#6e4320';ctx.fillRect(c.x0,c.y,8,H);ctx.fillRect(c.x0+140,c.y,8,H);
@@ -1321,6 +1336,8 @@ function renderBoat(){
     if(P.floating){ctx.fillStyle=`hsla(${frame*6%360},90%,75%,.8)`;for(let i=0;i<4;i++){circ(P.bx+18+i*20,P.by+4,10);ctx.fill();}}
     drawDinghy(P.bx,P.by,0);ctx.restore();
   }
+  // davit ropes while the Irish Rover hoists Rover Jr (with the boys in it) up onto the stern
+  if(P.state==='win'&&P.hoist&&P.hoist.t>55){const ax=L.ship.x-58,ay=ROVER_DECK3-40;ctx.strokeStyle='#e8e2cc';ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(P.bx+14,P.by-26);ctx.moveTo(ax,ay);ctx.lineTo(P.bx+82,P.by-26);ctx.stroke();}
   for(const f of fx)drawKid(f.who,f.x,f.y,f.face,'jump',f.t,Math.max(0,1-f.t/90),{});
   for(const p of parts){ctx.fillStyle=p.col;ctx.globalAlpha=Math.min(1,p.life/15);ctx.fillRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size);}ctx.globalAlpha=1;
   if(L.cheer&&!DLG&&Math.abs(P.bx-L.cheer.x0)<260){drawBubble(L.cheer.x0+30,L.cheer.y-120,'Go, boys, go!');drawBubble(L.cheer.x0+130,L.cheer.y-160,'Hold on tight, lads!');}
@@ -1329,6 +1346,18 @@ function renderBoat(){
   if(POP){const a=POP.t<10?POP.t/10:POP.t>90?(110-POP.t)/20:1,s=1+Math.max(0,(12-POP.t))*0.06;ctx.save();ctx.globalAlpha=Math.max(0,a);ctx.translate(W/2,150);ctx.scale(s,s);
     txt(POP.text,0,0,64,`hsl(${frame*8%360},95%,62%)`,'center','#2a1406');ctx.restore();}
   if(DLG)drawDialog();
+}
+
+// End of Dinghy Dash: Rover Jr motors up behind the Irish Rover, the davit ropes drop,
+// and the dinghy (boys and all) is hoisted up onto the stern. Then the crew says well done.
+const ROVER_DECK3=384;
+function boatHoist(){
+  const h=P.hoist;if(!h||h.done)return;h.t++;
+  const tx=L.ship.x-107,ty=ROVER_DECK3-10;
+  if(h.t<=55){const k=h.t/55,e=k*k*(3-2*k);P.bx=h.x0+(tx-h.x0)*e;P.by=h.y0+Math.sin(frame*0.2)*1;}
+  else if(h.t<=150){const k=(h.t-55)/95,e=k*k*(3-2*k);P.bx=tx+Math.sin(h.t*0.12)*3*(1-k);P.by=h.y0+(ty-h.y0)*e;if(h.t%16===0)SFX.rope&&SFX.rope();}
+  else{h.done=true;P.bx=tx;P.by=ty;POP={text:'ALL ABOARD!',t:0};SFX.cheer();
+    startDialog(endLines(3,G),()=>{STATE='clear';clearT=0;});}
 }
 
 /* ================= LEVEL 4: CORAL LAGOON =================
@@ -1414,7 +1443,7 @@ function swimUpdate(){
   if(frame%45===0)parts.push({x:P.x+P.w/2+P.face*8,y:P.y+6,vx:0,vy:-1.2,life:40,col:'rgba(220,245,255,.7)',g:-0.01,size:3});
   P.prevBottom=P.y+P.h;moveX(P,P.vx);P.onGround=false;moveY(P,P.vy);
   if(P.x<0)P.x=0;if(P.x>L.cols*T-P.w)P.x=L.cols*T-P.w;
-  P.hist.push({x:P.x+P.w/2,y:P.y+P.h,face:P.face,air:true,mv:Math.abs(P.vx)>0.5});if(P.hist.length>40)P.hist.shift();
+  P.hist.push({x:P.x+P.w/2,y:P.y+P.h,face:P.face,air:true,mv:true,swim:true});if(P.hist.length>40)P.hist.shift();
   collectStuff();
   for(const bb of L.buddy)if(!bb.broken&&!P.partner&&Math.abs(P.x+P.w/2-bb.x)<30&&P.y+P.h>bb.y-50&&P.y<bb.y){
     bb.broken=true;P.partner=true;P.hist=[];P.px=bb.x;P.py=bb.y;SFX.buddy();burst(bb.x,bb.y-24,22,'#8a5527',5,0.3,4);}
@@ -1736,7 +1765,8 @@ function updatePlats(){
 function landOnPlats(){
   if(!L.plats||P.vy<0)return;
   for(const p of L.plats){const top=p.kind==='sink'?p.y+(p.bob||0):p.y;
-    if(P.x+P.w>p.x-p.w/2&&P.x<p.x+p.w/2&&P.prevBottom<=top+3&&P.y+P.h>=top){
+    // small tolerance so a sinking barrel (which drops slightly faster than gravity pulls) keeps the boys standing on it
+    if(P.x+P.w>p.x-p.w/2&&P.x<p.x+p.w/2&&P.prevBottom<=top+3&&P.y+P.h>=top-(p.kind==='sink'?2:0)){
       if(p.kind==='sail'){P.y=top-P.h;P.vy=IN.jump?-18.5:-16;P.noCut=true;P.onGround=false;p.dent=14;SFX.bounce();
         burst(P.x+P.w/2,top,6,'#f3ead2',2,0.1);}
       else{P.y=top-P.h;P.vy=0;P.onGround=true;p.stood=true;}
@@ -2439,18 +2469,20 @@ function drawSkyTile(c,r,t,x,y){
 }
 // treasure-map icon: Skye's plane flying over fluffy clouds, a grumpy storm cloud nearby
 function drawSkyIcon(){
-  // landing strip on the sand, with a windsock
-  ctx.fillStyle='#8c8a96';rr(-40,-6,62,8,3);ctx.fill();ctx.fillStyle='#fff';for(let k=0;k<4;k++)ctx.fillRect(-35+k*15,-3,8,2);
-  ctx.fillStyle='#ddd';ctx.fillRect(30,-30,2,28);const fl=Math.sin(frame*0.15)*2;for(let k=0;k<3;k++){ctx.fillStyle=k%2?'#fff':'#ff7a1f';ctx.beginPath();ctx.moveTo(32+k*6,-30+k+fl*k*0.3);ctx.lineTo(38+k*6,-29+k+fl*(k+1)*0.3);ctx.lineTo(38+k*6,-23-k+fl*(k+1)*0.3);ctx.lineTo(32+k*6,-24-k+fl*k*0.3);ctx.closePath();ctx.fill();}
-  // soft fluffy clouds drifting in the air above the island (shaded, no outlines)
-  const cloud=(cx,cy,s)=>{ctx.fillStyle='rgba(190,205,230,.9)';[[0,4,10],[12,3,9],[-11,4,8]].forEach(([a,b,r])=>{circ(cx+a*s,cy+b*s,r*s);ctx.fill();});
-    ctx.fillStyle='#fff';[[0,0,10],[11,1,8],[-10,2,7],[5,-6,7]].forEach(([a,b,r])=>{circ(cx+a*s,cy+b*s,r*s);ctx.fill();});};
-  cloud(-40,-44,0.9);cloud(40,-58,0.75);
+  const soft=(cx,cy,sc)=>{ctx.fillStyle='rgba(185,200,228,.95)';[[0,5,11],[13,4,10],[-12,5,9],[24,6,7],[-22,6,6]].forEach(([a,b,r])=>{circ(cx+a*sc,cy+b*sc,r*sc);ctx.fill();});
+    ctx.fillStyle='#fff';[[0,0,11],[12,1,9],[-11,2,8],[5,-7,8],[-5,-6,7],[22,3,6],[-20,4,5]].forEach(([a,b,r])=>{circ(cx+a*sc,cy+b*sc,r*sc);ctx.fill();});};
+  // masts of Bart's hidden fleet poking up through the clouds
+  [[-24,-62,1],[20,-52,-1]].forEach(([mx,mt,f])=>{ctx.fillStyle='#7a4a24';ctx.fillRect(mx-2.5,mt,5,62);ctx.fillRect(mx-12,mt+16,24,3.5);ctx.fillRect(mx-9,mt+30,18,3);
+    ctx.fillStyle='#6e4320';rr(mx-7,mt-6,14,8,2);ctx.fill();ctx.fillStyle='#1a1a1a';ctx.fillRect(mx-0.8,mt-20,1.6,15);ctx.beginPath();ctx.moveTo(mx+0.8,mt-20);ctx.lineTo(mx+0.8+f*11,mt-17+Math.sin(frame*0.12+mx)*1.2);ctx.lineTo(mx+0.8,mt-13);ctx.fill();
+    ctx.fillStyle='#fff';circ(mx+f*4.5,mt-17,1.4);ctx.fill();});
+  // a thick bank of fluffy clouds over the island, with more drifting above
+  soft(-34,-6,1.05);soft(2,-10,1.2);soft(36,-5,1.0);soft(-14,4,0.9);soft(20,6,0.85);
+  soft(-48,-46,0.7);soft(48,-40,0.65);soft(4,-84,0.55);
   // grumpy storm cloud with a little zap
-  ctx.save();ctx.translate(-12,-82);ctx.scale(0.36,0.36);puff(-30,0,1,'#5f5878');ctx.restore();
-  if((frame>>3)%4===0){ctx.strokeStyle='#fff3a0';ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(-6,-74);ctx.lineTo(-11,-64);ctx.lineTo(-4,-64);ctx.lineTo(-9,-52);ctx.stroke();}
+  ctx.save();ctx.translate(-50,-92);ctx.scale(0.34,0.34);puff(-30,0,1,'#5f5878');ctx.restore();
+  if((frame>>3)%4===0){ctx.strokeStyle='#fff3a0';ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(-44,-84);ctx.lineTo(-49,-74);ctx.lineTo(-42,-74);ctx.lineTo(-47,-62);ctx.stroke();}
   // Skye's plane
-  ctx.save();ctx.translate(10,-34+Math.sin(frame*0.06)*3);ctx.scale(0.36,0.36);drawPlane(0,0,1,frame,true,()=>drawSkye(16,-36,1,frame,1.3),-0.08);ctx.restore();
+  ctx.save();ctx.translate(28,-70+Math.sin(frame*0.06)*3);ctx.scale(0.32,0.32);drawPlane(0,0,1,frame,true,()=>drawSkye(16,-36,1,frame,1.3),-0.08);ctx.restore();
 }
 
 /* ================= LEVEL 9: BARNACLE BART'S FORT (FINALE) =================
@@ -2512,8 +2544,6 @@ ENDLINES[9]=g=>[['james',"Ye did it, Noah and Benny! Barnacle Bart is beaten!"],
   ['mom',"My brave boys! Big hugs for both of you!"],
   ['dad',"Way to go, boys! High fives all around!"],
   ['skye',"Woof! Woof woof! (Skye wags her tail so hard she nearly falls over.)"],
-  ['benny',"We did it, Noah! We saved Kernahan Cove! Can we go on another adventure tomorrow?"],
-  ['noah',"Thanks for helping us, everybody! Best. Pirate. Adventure. EVER!"],
   ['james',"Three cheers for Noah and Benny! Hip hip, HOORAY! ...THE END, until our next adventure!"]];
 
 /* ---------- fort update (called every frame from updateEnemies) ---------- */
@@ -2771,6 +2801,191 @@ function drawBigChest(){
   ctx.restore();
 }
 
+/* ================= TREASURE MAP WORLD =================
+   One big tropical island (Kernahan Isle) holding the first levels — the beach, the jungle,
+   the river (Dinghy Dash) and Pirate Port's harbour — with smaller islands around it: a coral
+   atoll (Coral Lagoon), a wreck reef, Mount Kaboom's volcano island, the cloudy sea stacks
+   (Stormy Skies) and Barnacle Bart's fort out on its own rock. The Irish Rover sails a curving
+   sea route around the coasts from harbour to harbour. The static scenery is painted once
+   into an offscreen canvas; waves, gulls, the route, icons and the Rover animate on top. */
+const MAP_WORLD_W=1700,MAP_SEA_H=462;
+// where each island's picture sits, and where the Rover docks for it
+const MAP_SPOTS=[null,
+  {x:250,y:340,sx:405,sy:432},   // 1 Kernahan Cove Beach (south coast)
+  {x:205,y:228,sx:45,sy:235},    // 2 Parrot Palm Jungle (west)
+  {x:430,y:188,sx:420,sy:80},    // 3 Dinghy Dash (river down to the north coast)
+  {x:880,y:126,sx:1022,sy:150},   // 4 Coral Lagoon (atoll)
+  {x:688,y:286,sx:822,sy:300},   // 5 Pirate Port (east harbour)
+  {x:950,y:392,sx:1030,sy:428},  // 6 Moonlight Shipwrecks (reef)
+  {x:1150,y:248,sx:1150,sy:368}, // 7 Mount Kaboom (volcano island)
+  {x:1340,y:172,sx:1340,sy:292}, // 8 Stormy Skies (sea stacks)
+  {x:1522,y:342,sx:1614,sy:440}];// 9 Barnacle Bart's Fort
+// the sea route (stops marked with their level number)
+const MAP_ROUTE=[[405,432,1],[260,436],[140,428],[44,330],[45,235,2],[58,130],[200,78],[420,80,3],[620,80],[770,76],[900,58],[1022,150,4],
+  [960,232],[870,262],[822,300,5],[868,368],[1030,428,6],[1100,418],[1150,368,7],[1250,334],[1292,296],[1340,292,8],[1420,330],[1462,428],[1540,454],[1614,440,9]];
+let MAP_PATH=null,MAP_CACHE=null,MAP_WAVES=[];
+function buildMapPath(){
+  // Catmull-Rom through the waypoints, sampled densely, with cumulative distance
+  const W_=MAP_ROUTE,pts=[],stops={};
+  for(let i=0;i<W_.length-1;i++){const p0=W_[Math.max(0,i-1)],p1=W_[i],p2=W_[i+1],p3=W_[Math.min(W_.length-1,i+2)];
+    for(let k=0;k<16;k++){const t=k/16,t2=t*t,t3=t2*t;
+      const f=(a,b,c,d)=>0.5*((2*b)+(-a+c)*t+(2*a-5*b+4*c-d)*t2+(-a+3*b-3*c+d)*t3);
+      if(k===0&&p1[2])stops[p1[2]]=pts.length;
+      pts.push({x:f(p0[0],p1[0],p2[0],p3[0]),y:f(p0[1],p1[1],p2[1],p3[1])});}}
+  const last=W_[W_.length-1];stops[last[2]]=pts.length;pts.push({x:last[0],y:last[1]});
+  let d=0;pts[0].d=0;for(let i=1;i<pts.length;i++){d+=Math.hypot(pts[i].x-pts[i-1].x,pts[i].y-pts[i-1].y);pts[i].d=d;}
+  const stopD={};for(const k in stops)stopD[k]=pts[stops[k]].d;
+  MAP_PATH={pts,stopD,len:d};
+}
+function mapPointAt(s){const P_=MAP_PATH.pts;s=clamp(s,0,MAP_PATH.len);let lo=0,hi=P_.length-1;
+  while(hi-lo>1){const m=(lo+hi)>>1;if(P_[m].d<s)lo=m;else hi=m;}
+  const a=P_[lo],b=P_[hi],k=b.d>a.d?(s-a.d)/(b.d-a.d):0;return {x:a.x+(b.x-a.x)*k,y:a.y+(b.y-a.y)*k,dx:b.x-a.x};}
+
+/* ---------- static scenery ---------- */
+function smoothShape(c,pts){c.beginPath();const n=pts.length,m=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2];let s=m(pts[n-1],pts[0]);c.moveTo(s[0],s[1]);
+  for(let i=0;i<n;i++){const q=m(pts[i],pts[(i+1)%n]);c.quadraticCurveTo(pts[i][0],pts[i][1],q[0],q[1]);}c.closePath();}
+function landmass(c,pts,green,inset){
+  c.save();c.lineJoin='round';
+  smoothShape(c,pts);c.strokeStyle='rgba(150,228,236,.35)';c.lineWidth=64;c.stroke();c.strokeStyle='rgba(185,240,242,.55)';c.lineWidth=32;c.stroke();
+  c.fillStyle='#f2d9a2';c.fill();c.strokeStyle='#e7c886';c.lineWidth=3;c.stroke();
+  // green interior, pulled in from the beach
+  const cx=pts.reduce((a,p)=>a+p[0],0)/pts.length,cy=pts.reduce((a,p)=>a+p[1],0)/pts.length;
+  smoothShape(c,pts.map(p=>[cx+(p[0]-cx)*inset,cy+(p[1]-cy)*inset]));
+  const g=c.createLinearGradient(0,cy-150,0,cy+150);g.addColorStop(0,green[0]);g.addColorStop(1,green[1]);c.fillStyle=g;c.fill();
+  c.restore();return {cx,cy};
+}
+function mapPalm(c,x,y,s,lean){c.save();c.translate(x,y);c.scale(s,s);c.strokeStyle='#8a5a30';c.lineWidth=3;c.beginPath();c.moveTo(0,0);c.quadraticCurveTo(lean*4,-9,lean*6,-18);c.stroke();
+  c.fillStyle='#2f8f3f';for(let k=0;k<5;k++){const a=-Math.PI/2+(k-2)*0.62;c.beginPath();c.ellipse(lean*6+Math.cos(a)*7,-18+Math.sin(a)*5,8,2.6,a,0,Math.PI*2);c.fill();}c.restore();}
+function paintMapScenery(){
+  const cv2=document.createElement('canvas');cv2.width=MAP_WORLD_W;cv2.height=MAP_SEA_H;const c=cv2.getContext('2d');
+  // open sea, deeper toward the bottom, with darker deep-water patches
+  let g=c.createLinearGradient(0,0,0,MAP_SEA_H);g.addColorStop(0,'#45b3e0');g.addColorStop(1,'#1f73ad');c.fillStyle=g;c.fillRect(0,0,MAP_WORLD_W,MAP_SEA_H);
+  c.fillStyle='rgba(15,70,120,.18)';[[300,470,260,40],[1000,40,220,40],[1250,470,200,40],[620,450,140,30]].forEach(([x,y,rx,ry])=>{c.beginPath();c.ellipse(x,y,rx,ry,0,0,Math.PI*2);c.fill();});
+  // ---- Kernahan Isle ----
+  const isle=[[92,262],[122,170],[222,116],[360,102],[500,114],[620,126],[712,162],[752,232],[738,312],[664,364],[520,384],[380,390],[250,378],[150,338]];
+  landmass(c,isle,['#7cc95f','#4fa548'],0.86);
+  // jungle forest in the west
+  c.fillStyle='#2f7d3c';[[170,212,40],[215,180,34],[260,225,38],[205,265,34],[150,250,26],[300,190,28]].forEach(([x,y,r])=>{c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fill();});
+  c.fillStyle='#3d9447';[[180,200,22],[240,205,20],[220,250,18],[285,205,16]].forEach(([x,y,r])=>{c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fill();});
+  // mountains in the middle, where the river starts
+  [[520,300,60,90,'#8a7a62'],[575,292,52,78,'#9a8a70'],[470,310,44,62,'#8e7e66'],[620,312,40,56,'#a08f74']].forEach(([x,y,w,h,col])=>{
+    c.fillStyle=col;c.beginPath();c.moveTo(x-w,y+20);c.lineTo(x,y+20-h);c.lineTo(x+w,y+20);c.closePath();c.fill();
+    c.fillStyle='rgba(0,0,0,.15)';c.beginPath();c.moveTo(x,y+20-h);c.lineTo(x+w,y+20);c.lineTo(x+w*0.2,y+20);c.closePath();c.fill();
+    c.fillStyle='#f4f1e8';c.beginPath();c.moveTo(x-w*0.18,y+20-h*0.8);c.lineTo(x,y+20-h);c.lineTo(x+w*0.18,y+20-h*0.8);c.lineTo(x,y+20-h*0.72);c.closePath();c.fill();});
+  // the river (Dinghy Dash) winding from the mountains to the north coast
+  c.lineCap='round';c.lineJoin='round';
+  const river=()=>{c.beginPath();c.moveTo(548,262);c.bezierCurveTo(500,240,520,200,470,186);c.bezierCurveTo(420,172,450,140,424,108);};
+  river();c.strokeStyle='#2e8fcf';c.lineWidth=10;c.stroke();river();c.strokeStyle='#8fd4f2';c.lineWidth=4;c.stroke();
+  // little waterfall + trail from the beach up into the hills
+  c.setLineDash([5,6]);c.strokeStyle='rgba(140,95,50,.55)';c.lineWidth=2.5;c.beginPath();c.moveTo(262,368);c.quadraticCurveTo(340,320,420,330);c.quadraticCurveTo(500,345,560,340);c.stroke();
+  c.beginPath();c.moveTo(560,340);c.quadraticCurveTo(630,340,672,300);c.stroke();c.setLineDash([]);
+  // harbour inlet on the east coast with a breakwater
+  c.fillStyle='#4fb9e2';c.beginPath();c.ellipse(742,300,22,30,0,0,Math.PI*2);c.fill();c.strokeStyle='#8c8a80';c.lineWidth=5;c.beginPath();c.moveTo(752,268);c.quadraticCurveTo(790,290,770,330);c.stroke();
+  // palms along the coast
+  [[140,330,1,1],[118,250,1,-1],[160,150,1,1],[330,112,1,1],[600,128,1,-1],[700,170,1,1],[728,320,1,-1],[380,382,1,1],[470,384,1,-1],[600,372,1,1],[310,372,1.2,-1]].forEach(([x,y,s,l])=>mapPalm(c,x,y,s,l));
+  c.font='italic bold 22px Georgia,serif';c.textAlign='center';c.fillStyle='rgba(60,90,40,.55)';c.fillText('Kernahan Isle',560,362);
+  // ---- Coral atoll (Coral Lagoon) ----
+  c.save();c.translate(880,132);
+  c.strokeStyle='rgba(150,228,236,.45)';c.lineWidth=40;c.beginPath();c.ellipse(0,0,92,48,0,0,Math.PI*2);c.stroke();
+  c.fillStyle='#f2d9a2';c.beginPath();c.ellipse(0,0,92,48,0,0,Math.PI*2);c.fill();
+  c.fillStyle='#7fdcd8';c.beginPath();c.ellipse(0,2,70,32,0,0,Math.PI*2);c.fill();
+  c.fillStyle='#55c8cf';c.beginPath();c.ellipse(4,5,52,22,0,0,Math.PI*2);c.fill();
+  c.fillStyle='#4fb9e2';c.fillRect(-10,30,20,22); // channel into the lagoon
+  [[-60,-28],[-20,-44],[30,-42],[70,-22],[78,14],[-78,10]].forEach(([x,y],i)=>mapPalm(c,x,y,0.9,i%2?1:-1));
+  c.fillStyle='#ff8fa3';[[-38,8],[-30,16],[40,10],[30,20],[-10,22]].forEach(([x,y])=>{c.beginPath();c.arc(x,y,3,0,Math.PI*2);c.fill();});
+  c.restore();
+  // ---- wreck reef ----
+  c.save();c.translate(950,402);c.fillStyle='rgba(185,240,242,.55)';c.beginPath();c.ellipse(0,0,90,34,0,0,Math.PI*2);c.fill();
+  c.fillStyle='#e9d29a';c.beginPath();c.ellipse(-10,6,58,14,0,0,Math.PI*2);c.fill();
+  c.fillStyle='#5b5560';[[-70,-6,10],[-52,10,7],[54,-10,9],[72,6,8],[30,16,6]].forEach(([x,y,r])=>{c.beginPath();c.moveTo(x-r,y+4);c.lineTo(x-r*0.4,y-r);c.lineTo(x+r*0.6,y-r*0.7);c.lineTo(x+r,y+4);c.closePath();c.fill();});
+  c.restore();
+  // ---- volcano island ----
+  landmass(c,[[1068,250],[1090,196],[1150,176],[1215,192],[1238,250],[1216,306],[1150,322],[1086,304]],['#5f8a48','#4a6e3a'],0.82);
+  c.fillStyle='rgba(80,60,60,.35)';c.beginPath();c.ellipse(1150,262,56,34,0,0,Math.PI*2);c.fill();
+  // ---- Stormy Skies sea stacks ----
+  [[1300,232,22,92],[1342,236,28,126],[1388,230,20,84]].forEach(([x,y,w,h])=>{c.fillStyle='rgba(185,240,242,.55)';c.beginPath();c.ellipse(x,y+4,w+16,10,0,0,Math.PI*2);c.fill();
+    const gg=c.createLinearGradient(x-w,0,x+w,0);gg.addColorStop(0,'#7d6f66');gg.addColorStop(0.5,'#a3958a');gg.addColorStop(1,'#6a5d55');c.fillStyle=gg;
+    c.beginPath();c.moveTo(x-w,y);c.lineTo(x-w*0.7,y-h);c.quadraticCurveTo(x,y-h-10,x+w*0.7,y-h);c.lineTo(x+w,y);c.closePath();c.fill();
+    c.fillStyle='#4fa548';c.beginPath();c.ellipse(x,y-h-2,w*0.75,6,0,0,Math.PI*2);c.fill();});
+  // ---- Barnacle Bart's rock ----
+  landmass(c,[[1440,344],[1462,290],[1522,270],[1590,292],[1610,348],[1584,398],[1520,410],[1458,392]],['#7e8a6e','#5d6852'],0.8);
+  c.fillStyle='#6b6a72';[[1460,380,14],[1596,372,12],[1580,300,10]].forEach(([x,y,r])=>{c.beginPath();c.moveTo(x-r,y+6);c.lineTo(x,y-r);c.lineTo(x+r,y+6);c.closePath();c.fill();});
+  // compass rose out in the far sea
+  c.save();c.translate(1640,110);c.globalAlpha=0.75;c.fillStyle='#f6ecd2';c.beginPath();c.arc(0,0,30,0,Math.PI*2);c.fill();c.strokeStyle='#8a5a28';c.lineWidth=2;c.stroke();
+  for(let k=0;k<4;k++){c.rotate(Math.PI/2);c.fillStyle=k%2?'#8a5a28':'#c0392b';c.beginPath();c.moveTo(0,-26);c.lineTo(6,0);c.lineTo(-6,0);c.closePath();c.fill();}
+  c.fillStyle='#3a1206';c.font='bold 11px sans-serif';c.textAlign='center';c.fillText('N',0,-33);c.restore();
+  // pick wave-sparkle spots that are out on open water, not on land
+  const px=c.getImageData(0,0,MAP_WORLD_W,MAP_SEA_H).data;MAP_WAVES=[];
+  for(let i=0;MAP_WAVES.length<70&&i<400;i++){const x=(i*173+37)%MAP_WORLD_W,y=30+(i*97)%420,o=(y*MAP_WORLD_W+x)*4;
+    if(px[o+2]>px[o]+70&&px[o+2]<235)MAP_WAVES.push([x,y,i]);}
+  MAP_CACHE=cv2;
+}
+
+/* ---------- map update / draw (replace the old zig-zag map) ---------- */
+function mapPlaceAt(n){if(!MAP_PATH)buildMapPath();MAP.sel=n;MAP.s=mapTargetS();const p=mapPointAt(MAP.s);MAP.rx=p.x;MAP.ry=p.y;MAP.cx=clamp(p.x-W/2,0,MAP_WORLD_W-W);}
+function mapTargetS(){return MAP_PATH.stopD[MAP.sel]||0;}
+function openMap(fromClear){
+  if(!MAP_PATH)buildMapPath();
+  STATE='map';MAP.sel=Math.min(SAVE.unlocked,LEVELS.length-1);if(fromClear&&L)MAP.sel=L.num;
+  MAP.s=mapTargetS();const p=mapPointAt(MAP.s);MAP.rx=p.x;MAP.ry=p.y;MAP.face=1;MAP.cx=clamp(p.x-W/2,0,MAP_WORLD_W-W);
+  if(fromClear){MAP.sel=L.num;
+    startDialog([['cayla',"Ahoy, lads! I'm Captain Cayla, keeper of the treasure map."],['cayla',"I've marked yer progress on me map. Yer game is saved!"],['cayla','Pick an island with ◀ ▶ and press B to sail there.']],null);
+    if(SAVE.seenCayla)DLG.lines=[['cayla',"Well done, me hearties! I've marked it on the map. Game saved!"]];SAVE.seenCayla=true;saveGame();}
+  MUS.tr=0;MUS.step=0.19;musicStart();
+}
+function updateMap(){
+  if(!MAP_PATH)buildMapPath();if(MAP.s===undefined)MAP.s=mapTargetS();
+  if(DLG){updateDialog();return;}
+  const maxSel=Math.min(SAVE.unlocked,MAPN.length-1);
+  if(pressed('left')&&MAP.sel>1){MAP.sel--;SFX.blip();}if(pressed('right')&&MAP.sel<maxSel){MAP.sel++;SFX.blip();}
+  const tgt=mapTargetS(),diff=tgt-MAP.s;
+  if(Math.abs(diff)>0.5){const step=Math.sign(diff)*Math.min(Math.abs(diff),Math.max(1.8,Math.min(9,Math.abs(diff)*0.06)));MAP.s+=step;}else MAP.s=tgt;
+  const p=mapPointAt(MAP.s);if(Math.abs(p.x-MAP.rx)>0.3)MAP.face=p.x>MAP.rx?1:-1;MAP.rx=p.x;MAP.ry=p.y;
+  MAP.cx+=(clamp(MAP.rx-W/2,0,MAP_WORLD_W-W)-MAP.cx)*0.1;
+  if(pressed('jump')&&Math.abs(tgt-MAP.s)<4){if(LEVELS[MAP.sel]){musicStop();startLevel(MAP.sel);}else POP={text:'Coming soon!',t:0};}
+  if(pressed('swap')){STATE_BEFORE_CAST='map';STATE='cast';}
+}
+function drawMap(){
+  if(!MAP_PATH)buildMapPath();if(!MAP_CACHE)paintMapScenery();if(MAP.s===undefined){MAP.s=mapTargetS();}
+  const cx=Math.round(MAP.cx);
+  ctx.drawImage(MAP_CACHE,-cx,0);
+  ctx.save();ctx.translate(-cx,0);
+  // twinkling waves
+  ctx.fillStyle='rgba(255,255,255,.45)';for(const [x,y,i] of MAP_WAVES){const k=Math.sin(frame*0.05+i);if(k>0.2)ctx.fillRect(x+Math.sin(frame*0.02+i)*4-6,y,8+k*6,2);}
+  // surf on the wreck reef and at the sea stacks
+  ctx.strokeStyle='rgba(255,255,255,.7)';ctx.lineWidth=2;[[880,396],[1018,392],[1300,236],[1342,240],[1388,234]].forEach(([x,y],i)=>{const r=10+((frame*0.4+i*13)%16);ctx.globalAlpha=1-((frame*0.4+i*13)%16)/16;ctx.beginPath();ctx.ellipse(x,y,r*1.6,r*0.4,0,0,Math.PI*2);ctx.stroke();});ctx.globalAlpha=1;
+  // a friendly sea serpent between the islands
+  ctx.fillStyle='#3aa05a';for(let k=0;k<3;k++){const x=1240+k*26,y=440+Math.sin(frame*0.05+k)*3;ctx.beginPath();ctx.arc(x,y,9,Math.PI,0);ctx.fill();}
+  ctx.beginPath();ctx.arc(1222,436+Math.sin(frame*0.05-1)*3,8,0,Math.PI*2);ctx.fill();ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(1219,433+Math.sin(frame*0.05-1)*3,2.4,0,Math.PI*2);ctx.fill();
+  // sea route: travelled part bright, the rest faint
+  const unl=Math.min(SAVE.unlocked,9),reach=MAP_PATH.stopD[unl]||0;
+  ctx.lineWidth=4;ctx.setLineDash([9,11]);ctx.lineCap='round';
+  ctx.beginPath();let first=true;for(const q of MAP_PATH.pts){if(q.d>reach)break;first?ctx.moveTo(q.x,q.y):ctx.lineTo(q.x,q.y);first=false;}ctx.strokeStyle='rgba(255,255,255,.85)';ctx.stroke();
+  ctx.beginPath();first=true;for(const q of MAP_PATH.pts){if(q.d<reach)continue;first?ctx.moveTo(q.x,q.y):ctx.lineTo(q.x,q.y);first=false;}ctx.strokeStyle='rgba(255,255,255,.25)';ctx.stroke();
+  ctx.setLineDash([]);ctx.lineCap='butt';
+  // dock markers
+  for(let i=1;i<=9;i++){const sp=MAP_SPOTS[i];ctx.fillStyle=i<=unl?'#ffd23f':'rgba(255,255,255,.35)';ctx.beginPath();ctx.arc(sp.sx,sp.sy,5,0,Math.PI*2);ctx.fill();}
+  // island pictures and names
+  for(let i=1;i<MAPN.length;i++)drawIsland(MAPN[i],i,i>SAVE.unlocked);
+  // gulls
+  ctx.strokeStyle='#fff';ctx.lineWidth=2;for(let k=0;k<4;k++){const x=((frame*0.6+k*420)%(MAP_WORLD_W+100))-50,y=90+k*70+Math.sin(frame*0.04+k)*10,f=Math.sin(frame*0.25+k)*4;
+    ctx.beginPath();ctx.moveTo(x-9,y-f);ctx.quadraticCurveTo(x-4,y-6,x,y);ctx.quadraticCurveTo(x+4,y-6,x+9,y-f);ctx.stroke();}
+  // the Irish Rover on the route, with a wake when sailing
+  const moving=Math.abs(mapTargetS()-MAP.s)>1,bob=Math.sin(frame*0.06)*2;
+  if(moving){ctx.strokeStyle='rgba(255,255,255,.7)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(MAP.rx-MAP.face*30,MAP.ry+8);ctx.lineTo(MAP.rx-MAP.face*48,MAP.ry+2);ctx.moveTo(MAP.rx-MAP.face*30,MAP.ry+10);ctx.lineTo(MAP.rx-MAP.face*48,MAP.ry+16);ctx.stroke();}
+  drawRover(MAP.rx-36,MAP.ry-4+bob,0.17,frame,!roverHasDinghy());
+  ctx.restore();
+  // edges, title, and Cayla's map room bar
+  if(MAP.cx>4)txt('◀',22,230,30,'#fff','center');if(MAP.cx<MAP_WORLD_W-W-4)txt('▶',W-22,230,30,'#fff','center');
+  const bar=ctx.createLinearGradient(0,MAP_SEA_H,0,H);bar.addColorStop(0,'#f6e7c1');bar.addColorStop(1,'#e2c98f');ctx.fillStyle=bar;ctx.fillRect(0,MAP_SEA_H,W,H-MAP_SEA_H);
+  ctx.fillStyle='#8a5a28';ctx.fillRect(0,MAP_SEA_H,W,4);
+  if(!DLG){drawPortrait('cayla',14,MAP_SEA_H+10,62,false);
+    const n=MAPN[MAP.sel];txt(MAP.sel+'. '+n.name,92,MAP_SEA_H+30,22,'#6b3a14',undefined,false);
+    txt("Treasure Map  ·  Captain Cayla's Map Room",92,MAP_SEA_H+58,15,'#8a5a28',undefined,false);
+    txt('◀ ▶ choose    B sail!    A crew',W-24,MAP_SEA_H+44,20,'#6b3a14','right',false);}
+  if(POP)txt(POP.text,W/2,120,40,'#fff','center');
+}
+
 /* ================= DRAW WORLD ================= */
 const rep=(base,period,off)=>{let x=(base-off)%period;if(x<-300)x+=period;return x;};
 function drawCloud(x,y,s){ctx.fillStyle='rgba(255,255,255,.92)';[[0,0,26],[24,-10,30],[52,0,24],[26,8,26]].forEach(([a,b,r])=>{circ(x+a*s,y+b*s,r*s);ctx.fill();});}
@@ -2917,8 +3132,8 @@ function render(){
   ctx.save();ctx.translate(-Math.round(cam.x),0);
   if(L.lighthouse&&cam.x<L.lighthouse.x+300)drawLighthouse(L.lighthouse.x,450);
   if(L.cottage&&cam.x<L.cottage.x+400)drawCottage(L.cottage.x,L.cottage.y);
-  if(L.ship&&cam.x+W>L.ship.x-120){const sy=L.shipY||380;drawRover(L.ship.x,sy,L.shipScale||1,frame);
-    if(!L.noPlank){ctx.strokeStyle='#8a5527';ctx.lineWidth=10;ctx.beginPath();ctx.moveTo(L.goal.capX+2*T,450);ctx.lineTo(L.ship.x+60,382);ctx.stroke();}}
+  if(L.ship&&cam.x+W>L.ship.x-120){const sy=L.shipY||412;drawRover(L.ship.x,sy,L.shipScale||1,frame,!roverHasDinghy());
+    if(!L.noPlank){ctx.strokeStyle='#8a5527';ctx.lineWidth=10;ctx.beginPath();ctx.moveTo(L.dockEnd||L.goal.capX+2*T,450);ctx.lineTo(L.ship.x+60,sy+2);ctx.stroke();}}
   for(const r of L.ropes)if(Math.abs(r.ax-cam.x-W/2)<W)drawRope(r);
   drawMasts();
   drawTiles();
@@ -2964,7 +3179,7 @@ function render(){
     let tx=hp?hp.x:P.x,ty=hp?hp.y:P.y+P.h;const lx=P.x+P.w/2;
     if(P.state!=='rope'&&Math.abs(tx-lx)<32)tx=lx-P.face*32;
     P.px+=(tx-P.px)*0.25;P.py=ty;
-    const pose=hp&&hp.air&&P.state!=='rope'?'jump':(hp&&hp.mv?'run':'idle');
+    const pose=hp&&hp.swim?'run':hp&&hp.air&&P.state!=='rope'?'jump':(hp&&hp.mv?'run':'idle');
     drawPlayerKid(other,P.px,P.py,hp?hp.face:P.face,pose,frame+8);
   }
   for(const f of fx)drawKid(f.who,f.x,f.y,f.face,'jump',f.t,Math.max(0,1-f.t/90),{});
@@ -3019,7 +3234,7 @@ function drawDialog(){
 /* ================= SCREENS ================= */
 function drawPanel(w,h){const x=(W-w)/2,y=(H-h)/2;ctx.fillStyle='rgba(24,16,8,.9)';rr(x,y,w,h,22);ctx.fill();ctx.strokeStyle='#e8b830';ctx.lineWidth=5;ctx.stroke();return{x,y};}
 function drawTitle(){
-  drawBeachBG(frame*1.2,()=>drawRover(180+Math.sin(frame*0.01)*14,352,0.22,frame));
+  drawBeachBG(frame*1.2,()=>drawRover(180+Math.sin(frame*0.01)*14,352,0.22,frame,!roverHasDinghy()));
   const sand=ctx.createLinearGradient(0,446,0,H);sand.addColorStop(0,'#f0d49a');sand.addColorStop(1,'#d9b06a');ctx.fillStyle=sand;ctx.fillRect(0,446,W,H-446);
   ctx.fillStyle='rgba(160,120,60,.25)';for(let i=0;i<40;i++){const x=(i*137)%W,y=470+(i*53)%60;ell(x,y,3,1.5);ctx.fill();}
   ctx.fillStyle='rgba(0,0,0,.12)';ell(330,454,60,6);ctx.fill();ell(740,454,40,6);ctx.fill();
@@ -3059,31 +3274,15 @@ function drawGameOver(){const p=drawPanel(520,220);txt("Don't give up, mateys!",
   txt('The Captain gives ye 5 more tries.',W/2,p.y+110,22,'#fff','center');if((frame>>5)%2)txt('Press B to keep going',W/2,p.y+165,22,'#fff','center');}
 
 /* ---------- Treasure map ---------- */
-// islands zig-zag left to right; the map scrolls sideways to follow the Irish Rover
+// island pictures sit on Kernahan Isle and the islands around it (see mapworld.js)
 const MAPN=[null,...[['Kernahan Cove Beach','beach'],['Parrot Palm Jungle','jungle'],['Dinghy Dash','river'],['Coral Lagoon','lagoon'],
-  ['Pirate Port','port'],['Moonlight Shipwrecks','wreck'],['Mount Kaboom','volcano'],['Stormy Skies','sky'],["Barnacle Bart's Fort",'fort']].map(([name,kind],i)=>({name,kind,x:115+i*160,y:i%2?170:290}))];
-const MAP_W=MAPN[MAPN.length-1].x+140;
+  ['Pirate Port','port'],['Moonlight Shipwrecks','wreck'],['Mount Kaboom','volcano'],['Stormy Skies','sky'],["Barnacle Bart's Fort",'fort']].map(([name,kind],i)=>({name,kind,x:MAP_SPOTS[i+1].x,y:MAP_SPOTS[i+1].y,noBase:[1,2,3,5,8].includes(i+1)}))];
+const MAP_W=MAP_WORLD_W;
 const MAP={sel:1,rx:115,ry:290,cx:0};
-function openMap(fromClear){
-  STATE='map';MAP.sel=Math.min(SAVE.unlocked,LEVELS.length-1);if(fromClear&&L)MAP.sel=L.num;
-  MAP.rx=MAPN[MAP.sel].x;MAP.ry=MAPN[MAP.sel].y;MAP.cx=clamp(MAP.rx-W/2,0,Math.max(0,MAP_W-W));
-  if(fromClear){MAP.sel=L.num;
-    startDialog([['cayla',"Ahoy, lads! I'm Captain Cayla, keeper of the treasure map."],['cayla',"I've marked yer progress on me map. Yer game is saved!"],['cayla','Pick an island with ◀ ▶ and press B to sail there.']],null);
-    if(SAVE.seenCayla)DLG.lines=[['cayla',"Well done, me hearties! I've marked it on the map. Game saved!"]];SAVE.seenCayla=true;saveGame();}
-  MUS.tr=0;MUS.step=0.19;musicStart();
-}
-function updateMap(){
-  if(DLG){updateDialog();return;}
-  const maxSel=Math.min(SAVE.unlocked,MAPN.length-1);
-  if(pressed('left')&&MAP.sel>1){MAP.sel--;SFX.blip();}if(pressed('right')&&MAP.sel<maxSel){MAP.sel++;SFX.blip();}
-  const n=MAPN[MAP.sel];MAP.rx+=(n.x-MAP.rx)*0.08;MAP.ry+=(n.y-MAP.ry)*0.08;MAP.cx+=(clamp(MAP.rx-W/2,0,Math.max(0,MAP_W-W))-MAP.cx)*0.1;
-  if(pressed('jump')&&Math.hypot(n.x-MAP.rx,n.y-MAP.ry)<20){if(LEVELS[MAP.sel]){musicStop();startLevel(MAP.sel);}else POP={text:'Coming soon!',t:0};}
-  if(pressed('swap')){STATE_BEFORE_CAST='map';STATE='cast';}
-}
 function drawIsland(n,i,locked){
   ctx.save();ctx.translate(n.x,n.y);if(locked)ctx.globalAlpha=0.55;
-  ctx.fillStyle='rgba(255,255,255,.35)';ell(0,10,82,28);ctx.fill();
-  ctx.fillStyle='#f0d49a';ell(0,6,74,24);ctx.fill();
+  if(!n.noBase){ctx.fillStyle='rgba(255,255,255,.35)';ell(0,10,82,28);ctx.fill();
+  ctx.fillStyle='#f0d49a';ell(0,6,74,24);ctx.fill();}else ctx.scale(0.85,0.85);
   if(n.kind==='beach'){ctx.save();ctx.scale(0.35,0.35);drawPalm(-60,10,1,-0.6);drawPalm(60,10,1,0.8);ctx.restore();}
   else if(n.kind==='jungle'){ctx.fillStyle='#3a8f4f';[[-30,-12,26],[0,-26,30],[30,-12,26],[-10,-4,20]].forEach(([u,v,r])=>{circ(u,v,r);ctx.fill();});ctx.save();ctx.scale(0.18,0.18);drawLighthouse(-260,40);ctx.restore();}
   else if(n.kind==='sky')drawSkyIcon();
@@ -3115,33 +3314,17 @@ function drawIsland(n,i,locked){
   ctx.restore();
   txt((i)+'. '+n.name,n.x,n.y+46,17,locked?'#bcd':'#fff','center');
 }
-function drawMap(){
-  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#3aa7d8');g.addColorStop(1,'#1d6fa8');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
-  ctx.fillStyle='rgba(255,255,255,.35)';for(let i=0;i<40;i++){const x=(i*137+frame*0.3)%W,y=(i*71)%H;ctx.fillRect(x,y,14,2);}
-  ctx.save();ctx.translate(-Math.round(MAP.cx),0);
-  ctx.strokeStyle='rgba(255,255,255,.75)';ctx.lineWidth=4;ctx.setLineDash([10,12]);
-  for(let i=1;i<MAPN.length-1;i++){if(i>=SAVE.unlocked)ctx.strokeStyle='rgba(255,255,255,.25)';ctx.beginPath();ctx.moveTo(MAPN[i].x,MAPN[i].y);ctx.quadraticCurveTo((MAPN[i].x+MAPN[i+1].x)/2,(MAPN[i].y+MAPN[i+1].y)/2+60,MAPN[i+1].x,MAPN[i+1].y);ctx.stroke();}
-  ctx.setLineDash([]);
-  for(let i=1;i<MAPN.length;i++)drawIsland(MAPN[i],i,i>SAVE.unlocked);
-  drawRover(MAP.rx-112,MAP.ry+20+Math.sin(frame*0.06)*2,0.17,frame); // docked at the island's shore
-  ctx.restore();
-  if(MAP.cx>4)txt('◀',22,230,30,'#fff','center');if(MAP.cx<MAP_W-W-4)txt('▶',W-22,230,30,'#fff','center');
-  ctx.fillStyle='rgba(24,16,8,.75)';rr(W/2-200,10,400,46,14);ctx.fill();txt('Treasure Map',W/2,34,30,'#ffd23f','center');
-  if(!DLG){drawAdult('cayla',70,H-18,1,frame,false,1.05);txt("Captain Cayla's Map Room",130,H-90,16,'#fff');
-    txt('◀ ▶ choose    B sail!    A crew',130,H-62,18,'#ffd23f');}
-  if(POP)txt(POP.text,W/2,120,40,'#fff','center');
-}
-
 /* ================= MAIN LOOP ================= */
 function step(){
   pollInput();frame++;musicTick();if(STATE==='play'){checkCheat();keepSuperStar();}
-  if(STATE==='title'){if(pressed('jump')||pressed('pause')){audioUnlock();if(SAVE.unlocked>1)openMap(false);else startLevel(1);}if(pressed('swap')){STATE_BEFORE_CAST='title';STATE='cast';}return;}
+  if(STATE==='title'){if(pressed('jump')||pressed('pause')){audioUnlock();PROF.sel=SLOT;PROF.confirm=false;STATE='profiles';SFX.blip();}if(pressed('swap')){STATE_BEFORE_CAST='title';STATE='cast';}return;}
+  if(STATE==='profiles'){updateProfiles();return;}
   if(STATE==='cast'){if(pressed('jump')||pressed('roll')||pressed('swap')||pressed('pause'))STATE=STATE_BEFORE_CAST;return;}
   if(STATE==='map'){updateMap();if(POP){POP.t++;if(POP.t>80)POP=null;}return;}
   if(STATE==='pause'){
     if(pressed('up')||pressed('left'))PAUSE.sel=0;if(pressed('down')||pressed('right'))PAUSE.sel=1;
     if(pressed('pause')||(pressed('jump')&&PAUSE.sel===0)){STATE='play';musicStart();}
-    else if(pressed('jump')&&PAUSE.sel===1){musicStop();const n=L.num;DLG=null;POP=null;openMap(false);MAP.sel=n;MAP.rx=MAPN[n].x;MAP.ry=MAPN[n].y;MAP.cx=clamp(MAP.rx-W/2,0,Math.max(0,MAP_W-W));SFX.blip();}
+    else if(pressed('jump')&&PAUSE.sel===1){musicStop();const n=L.num;DLG=null;POP=null;openMap(false);mapPlaceAt(n);SFX.blip();}
     return;}
   if(STATE==='gameover'){if(pressed('jump')){lives=5;STATE='play';respawnPlayer();musicStart();}return;}
   if(STATE==='clear'){clearT++;if(clearT>60&&pressed('jump')){if(L.num>=SAVE.unlocked){SAVE.unlocked=L.num+1;saveGame();}openMap(true);}return;}
@@ -3155,6 +3338,7 @@ let STATE_BEFORE_CAST='title';
 function draw(){
   if(STATE==='title'){drawTitle();return;}
   if(STATE==='cast'){drawCast();return;}
+  if(STATE==='profiles'){drawProfiles();return;}
   if(STATE==='map'){drawMap();if(DLG)drawDialog();return;}
   if(L.mode==='boat')renderBoat();else render();
   if(STATE==='pause')drawPause();else if(STATE==='clear')drawClear();else if(STATE==='gameover')drawGameOver();
@@ -3162,7 +3346,43 @@ function draw(){
 let last=0,acc=0;
 function loop(ts){if(!last)last=ts;acc+=Math.min(100,ts-last);last=ts;while(acc>=1000/60){step();acc-=1000/60;}draw();requestAnimationFrame(loop);}
 requestAnimationFrame(loop);
-window.__G={step,draw,SRC,startLevel,openMap,ropeAng,ropeW,get P(){return P},get L(){return L},get STATE(){return STATE},set STATE(v){STATE=v},get lives(){return lives},get G(){return G},get DLG(){return DLG},cam,SAVE,MAP};
+window.__G={step,draw,SRC,startLevel,openMap,mapPlaceAt,ropeAng,ropeW,get P(){return P},get L(){return L},get STATE(){return STATE},set STATE(v){STATE=v},get lives(){return lives},get G(){return G},get DLG(){return DLG},cam,SAVE,MAP};
+
+/* ================= GAME PROFILES ================= */
+const PROF={sel:1,confirm:false};
+function updateProfiles(){
+  if(PROF.confirm){
+    if(pressed('jump')){eraseSlot(PROF.sel);PROF.confirm=false;SFX.splash();POP={text:'Game '+PROF.sel+' starts fresh!',t:0};}
+    else if(pressed('swap')||pressed('roll')||pressed('pause')){PROF.confirm=false;SFX.blip();}
+    return;}
+  if(pressed('left')&&PROF.sel>1){PROF.sel--;SFX.blip();}
+  if(pressed('right')&&PROF.sel<SLOTS){PROF.sel++;SFX.blip();}
+  if(pressed('jump')){useSlot(PROF.sel);SFX.coin();if(SAVE.unlocked>1)openMap(false);else startLevel(1);return;}
+  if(pressed('roll')&&readSlot(PROF.sel)){PROF.confirm=true;SFX.blip();}
+  if(pressed('pause')||pressed('swap')){STATE='title';}
+  if(POP){POP.t++;if(POP.t>90)POP=null;}
+}
+function drawProfiles(){
+  drawBeachBG(frame*0.6);ctx.fillStyle='rgba(10,20,40,.45)';ctx.fillRect(0,0,W,H);
+  txt('Choose Your Game',W/2,62,44,'#ffd23f','center');
+  for(let i=1;i<=SLOTS;i++){const s=readSlot(i),x=W/2+(i-2)*290,y=270,on=PROF.sel===i,cleared=s?Math.min(9,s.unlocked-1):0;
+    ctx.save();ctx.translate(x,y+(on?Math.sin(frame*0.08)*4:0));
+    ctx.fillStyle=on?'#fff3d6':'rgba(255,243,214,.75)';rr(-125,-140,250,280,22);ctx.fill();ctx.strokeStyle=on?'#ffd23f':'#8a5a28';ctx.lineWidth=on?7:3;rr(-125,-140,250,280,22);ctx.stroke();
+    txt('Game '+i,0,-108,32,'#6b3a14','center',false);
+    // a treasure chest that fills up with gold as islands are cleared
+    ctx.fillStyle='#8a5527';rr(-44,-58,88,52,8);ctx.fill();ctx.fillStyle='#e8b830';ctx.fillRect(-44,-40,88,6);
+    if(cleared>=9){ctx.fillStyle='#ffd23f';ell(0,-60,40,12);ctx.fill();ctx.fillStyle='#8a5527';ctx.save();ctx.translate(0,-60);ctx.rotate(-0.8);rr(-44,-24,88,24,10);ctx.fill();ctx.restore();}
+    else{ctx.fillStyle='#9e6531';rr(-46,-78,92,26,12);ctx.fill();ctx.fillStyle='#e8b830';ctx.fillRect(-6,-60,12,14);}
+    // nine islands
+    for(let k=0;k<9;k++){const dx=-80+k*20;ctx.fillStyle=k<cleared?'#ffd23f':'rgba(107,58,20,.25)';circ(dx,26,7);ctx.fill();}
+    txt(!s?'New game':cleared>=9?'All 9 islands!':cleared+' of 9 islands',0,62,22,'#6b3a14','center',false);
+    if(s&&s.unlocked>1&&cleared<9)txt('Next: '+(MAPN[Math.min(s.unlocked,9)]||{name:''}).name,0,92,15,'#8a5a28','center',false);
+    ctx.restore();}
+  if(PROF.confirm){const p=drawPanel(560,190);txt('Start Game '+PROF.sel+' over?',W/2,p.y+50,32,'#ffd23f','center');
+    txt('All its islands will be cleared.',W/2,p.y+95,20,'#fff','center',false);txt('B  Yes, start over        A  No',W/2,p.y+145,22,'#ffd23f','center');}
+  else{txt('◀ ▶ choose     B play     Y start over',W/2,H-58,22,'#fff','center');}
+  if(POP)txt(POP.text,W/2,H-100,26,'#ffd23f','center');
+}
 
 </script>
 </body></html>
