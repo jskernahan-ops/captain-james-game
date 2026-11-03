@@ -1,0 +1,44 @@
+# Builds the game into CaptainJames.apk on GitHub's free build servers and publishes it as the
+# latest Release. The installed game checks that Release every time it starts:
+#   game.html     the newest game (downloaded and played automatically, saves are kept)
+#   version.json  {"game": build number, "apk": app versionCode}
+#   CaptainJames.apk  only offered to the TV when the app itself (versionCode) has changed
+name: Build APK
+on:
+  push:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Tell the app where its updates live
+        run: |
+          echo "{\"repo\":\"${{ github.repository }}\",\"game\":${{ github.run_number }}}" > app/src/main/assets/update.json
+          cat app/src/main/assets/update.json
+      - name: Build the APK
+        run: gradle assembleDebug --no-daemon
+      - name: Prepare the release files
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk CaptainJames.apk
+          cp app/src/main/assets/game/index.html game.html
+          APK=$(grep -o 'versionCode *[0-9]*' app/build.gradle | grep -o '[0-9]*')
+          echo "{\"game\":${{ github.run_number }},\"apk\":$APK}" > version.json
+          cat version.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CaptainJames-apk
+          path: CaptainJames.apk
+      - name: Publish as the latest release
+        env:0
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "build-${{ github.run_number }}" CaptainJames.apk game.html version.json --title "Build ${{ github.run_number }}" --notes "Captain James game build" --latest
