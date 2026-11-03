@@ -23,7 +23,10 @@ jobs:
           gradle-version: '8.9'
       - name: Tell the app where its updates live
         run: |
-          echo "{\"repo\":\"${{ github.repository }}\",\"game\":${{ github.run_number }}}" > app/src/main/assets/update.json
+          # a build number that always goes up (seconds since 1970), so every new game counts as newer
+          G=$(date +%s)
+          echo "GAME=$G" >> $GITHUB_ENV
+          echo "{\"repo\":\"${{ github.repository }}\",\"game\":$G}" > app/src/main/assets/update.json
           cat app/src/main/assets/update.json
       - name: Build the APK
         run: gradle assembleDebug --no-daemon
@@ -32,7 +35,7 @@ jobs:
           cp app/build/outputs/apk/debug/app-debug.apk CaptainJames.apk
           cp app/src/main/assets/game/index.html game.html
           APK=$(grep -o 'versionCode *[0-9]*' app/build.gradle | grep -o '[0-9]*')
-          echo "{\"game\":${{ github.run_number }},\"apk\":$APK}" > version.json
+          echo "{\"game\":$GAME,\"apk\":$APK}" > version.json
           cat version.json
       - uses: actions/upload-artifact@v4
         with:
@@ -41,4 +44,4 @@ jobs:
       - name: Publish as the latest release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "build-${{ github.run_number }}" CaptainJames.apk game.html version.json --title "Build ${{ github.run_number }}" --notes "Captain James game build" --latest
+        run: gh release create "build-$GAME" CaptainJames.apk game.html version.json --title "Build $(date -u -d @$GAME '+%Y-%m-%d %H:%M')" --notes "Captain James game build" --latest
