@@ -1710,7 +1710,8 @@ function buildLevel5(){
   h.ground(33,90,2);
   crate(40,9,9);crate(41,9,9);h.enemy('thrower',41);h.row(39,41,7);
   papa(47);h.sign(45,'Break open the crate to wake up Papa Bosun!');
-  h.enemy('bonehead',52);h.enemy('crab',55);h.enemy('bonehead',57);h.letter('A',54,6);
+  // no enemies right after Papa's crate: give the boys a calm run to get used to riding him
+  h.letter('A',54,6);
   // secret room behind a cracked wall
   h.sign(57,"Cracked wall? Papa's CHARGE (Y) can smash it!");
   crate(59,9,9);crate(60,8,9);crate(61,8,9);
@@ -1726,7 +1727,7 @@ function buildLevel5(){
   h.ground(116,170,2);h.buddy(118);
   h.sign(121,'RAINBOW BARREL! Grab it for SUPER POWER!');h.star(124);
   papa(129);
-  h.enemy('crab',132);h.enemy('crab',135);h.enemy('bonehead',138);h.row(131,139,9);
+  h.row(131,139,9);   // (calm stretch after Papa's second crate)
   crate(146,9,9);crate(147,9,9);h.enemy('thrower',147);h.letter('O',142,5);
   h.cp(152);
   h.enemy('bonehead',157);h.enemy('crab',161);h.enemy('bonehead',165);h.row(155,168,9);
@@ -2114,9 +2115,9 @@ function buildLevel7(){
   h.ground(18,34,2);h.enemy('crab',22);bat(27,6,70);h.row(19,26,9);
   h.sign(29,"Break Mama Pearl's crate! Hold B in the air to float!");mama(31);
   // first lava lake: stepping stones, or float on the steam vents
-  stone(37,2,9);stone(41,2,9);fire(39.5,40);vent(35.5,200);vent(43.5,200);
+  stone(37,2,9);stone(41,2,9);vent(35.5,200);vent(43.5,200);   // no fireball here: it's right after Mama's crate
   h.letter('A',39.5,4);h.arc(35,44,6,2.5);
-  h.ground(45,60,3);bat(50,6,80);h.enemy('crab',54);h.row(46,58,7.5);
+  h.ground(45,60,3);h.row(46,58,7.5);   // calm ground after the first lava lake so Mama can settle in
   fire(62,80);h.arc(60,64,7,2);
   h.ground(64,80,2);h.cp(66);h.letter('H',69,7);h.buddy(72);bat(76,6,60);h.row(68,79,9);
   // big lava lake with a secret ledge high above (vents + parasol)
@@ -2131,7 +2132,7 @@ function buildLevel7(){
   h.ground(131,134,3);h.ground(135,138,4);h.ground(139,142,5);h.row(131,141,6);
   stone(146,2,9);vent(144.5,200);vent(149,200);fire(148.5,30);h.arc(142,151,6,2);mama(152.5);
   // (no crab right after Mama's second crate: you'd bump into it as she pops out)
-  h.ground(151,175,2);bat(161,6,70);h.letter('Y',160,6);
+  h.ground(151,175,2);h.letter('Y',160,6);
   fire(165.5,10);h.ground(167,175,2);for(let x=165;x<=166;x++)for(let r=0;r<ROWS;r++)g[r][x]=0;h.arc(164,167,8,2);
   h.enemy('crab',171);bat(174,6,60);
   h.ground(176,203,2);fire(180.5,70);for(let x=180;x<=181;x++)for(let r=0;r<ROWS;r++)g[r][x]=0;h.arc(179,182,7,2);
